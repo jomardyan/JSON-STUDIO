@@ -2354,7 +2354,7 @@ export default function App() {
               
               {/* Open Source Project Badge */}
               <a
-                href="https://github.com"
+                href="https://github.com/jomardyan/JSON-STUDIO"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
@@ -2378,7 +2378,15 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3">
-              <a href="https://json.lolisoft.eu" className="hover:underline">{t.home}</a>
+              <a href="https://github.com/jomardyan/JSON-STUDIO" target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300">
+                <Github className="w-3 h-3" />
+                <span>GitHub Repository</span>
+              </a>
+              <span>•</span>
+              <a href="https://github.com/jomardyan/JSON-STUDIO/issues/new" target="_blank" rel="noopener noreferrer" className="hover:underline font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-amber-500" />
+                <span>Report Issue / Request Feature</span>
+              </a>
               <span>•</span>
               <button onClick={() => setIsSettingsOpen(true)} className="hover:underline cursor-pointer">{t.settings}</button>
               <span>•</span>

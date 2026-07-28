@@ -647,7 +647,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* GitHub Open Source Link */}
           <a
-            href="https://github.com"
+            href="https://github.com/jomardyan/JSON-STUDIO"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shadow-2xs"
