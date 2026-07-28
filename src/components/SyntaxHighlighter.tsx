@@ -42,7 +42,7 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
                 }`}
               >
                 {/* Line number */}
-                <td className="select-none text-right pr-4 pl-3 py-0.5 text-slate-400 dark:text-slate-600 border-r border-slate-200 dark:border-slate-800 w-12 text-[11px] font-mono">
+                <td className="w-12 select-none border-r border-slate-200 py-0.5 pr-4 pl-3 text-right font-mono text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-400">
                   {lineNumber}
                 </td>
 

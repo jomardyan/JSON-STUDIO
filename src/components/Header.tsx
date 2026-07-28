@@ -679,7 +679,7 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenShortcuts && (
             <button
               onClick={onOpenShortcuts}
-              className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer shadow-2xs"
               title="Keyboard Shortcuts Cheat Sheet (Ctrl+/)"
             >
               <Keyboard className="w-3.5 h-3.5 text-indigo-500" />
@@ -691,7 +691,7 @@ export const Header: React.FC<HeaderProps> = ({
             href="https://github.com/jomardyan/JSON-STUDIO"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shadow-2xs"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors cursor-pointer shadow-2xs"
             title="View Open Source Repository on GitHub"
           >
             <Github className="w-3.5 h-3.5" />
@@ -776,5 +776,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
 

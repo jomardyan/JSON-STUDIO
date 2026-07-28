@@ -178,6 +178,7 @@ export default function App() {
   const [outputViewMode, setOutputViewMode] = React.useState<OutputViewMode>('code');
   const [parsedData, setParsedData] = React.useState<any>(null);
   const [activeActionTitle, setActiveActionTitle] = React.useState<string>('Formatted JSON');
+  const [lastProcessedInput, setLastProcessedInput] = React.useState<string>(inputText);
 
   // Validation & Error state
   const [isValid, setIsValid] = React.useState<boolean>(true);
@@ -344,6 +345,7 @@ export default function App() {
       setOutputText(result);
       setOutputLanguage(lang);
       setActiveActionTitle(title);
+      setLastProcessedInput(inputText);
 
       if (convErr) {
         setIsValid(false);
@@ -892,6 +894,7 @@ export default function App() {
         setParsedData(parsedObj);
         setIsValid(validState);
         setError(errDetail);
+        setLastProcessedInput(actionType === 'repair' ? resultText : inputText);
 
         // Save to persistent history if valid output
         if (resultText && validState) {
@@ -982,6 +985,7 @@ export default function App() {
       return;
     }
     setInputText(outputText);
+    setLastProcessedInput(outputText);
     let targetFmt: DataFormat = 'json';
     if (outputLanguage === 'xml') targetFmt = 'xml';
     else if (outputLanguage === 'csv') targetFmt = 'csv';
@@ -1219,6 +1223,7 @@ export default function App() {
     setParsedData(parsedObj);
     setIsValid(validState);
     setError(errDetail);
+    setLastProcessedInput(sample.content);
 
     showToast(`Loaded sample: ${sample.name}`);
   };
@@ -1238,6 +1243,7 @@ export default function App() {
     setParsedData(restoredData);
     setIsValid(Boolean(inputResult?.valid));
     setError(inputResult?.valid ? null : { message: inputResult?.error || 'Unable to parse restored input' });
+    setLastProcessedInput(item.inputText);
     showToast(`Restored: ${item.title}`);
   };
 
@@ -1251,8 +1257,24 @@ export default function App() {
     setIsValid(validation.valid);
     setError(validation.error);
     setActiveActionTitle('Formatted JSON');
+    setLastProcessedInput(jsonText);
     showToast(message);
   };
+
+  const handleClearWorkspace = () => {
+    setInputText('');
+    setOutputText('');
+    setParsedData(null);
+    setSearchQuery('');
+    setIsValid(true);
+    setError(null);
+    setActiveActionTitle('No output yet');
+    setLastProcessedInput('');
+    textareaRef.current?.focus();
+    showToast('Workspace cleared');
+  };
+
+  const isOutputStale = Boolean(outputText) && inputText !== lastProcessedInput;
 
   // Stats calculation
   const stats: TransformationStats | null = React.useMemo(() => {
@@ -1263,7 +1285,11 @@ export default function App() {
     <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors selection:bg-indigo-500/30">
       {/* Toast Notification Banner */}
       {toastMessage && (
-        <div className="fixed bottom-12 right-6 z-50 bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 px-3.5 py-2 rounded-lg shadow-xl font-mono text-xs flex items-center gap-2 border border-zinc-700 dark:border-zinc-300 animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[110] max-w-[calc(100vw-2rem)] bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 px-3.5 py-2.5 rounded-xl shadow-xl font-mono text-xs flex items-center gap-2 border border-zinc-700 dark:border-zinc-300 animate-in fade-in slide-in-from-bottom-2 duration-150"
+        >
           <ClipboardCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-600" />
           <span>{toastMessage}</span>
         </div>
@@ -1313,7 +1339,10 @@ export default function App() {
       {/* Main Workspace */}
       <main className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-5 gap-3 overflow-visible">
         {/* Action Toolbar */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-lg p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 relative z-30">
+        <section
+          aria-label="Quick actions"
+          className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 relative z-30"
+        >
           {/* Format / Transformation Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
@@ -1346,7 +1375,7 @@ export default function App() {
             {/* Core Converters */}
             <button
               onClick={() => handleFormat('to-csv')}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
               JSON ➔ CSV
@@ -1354,7 +1383,7 @@ export default function App() {
 
             <button
               onClick={() => handleFormat('to-xml')}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-sky-500" />
               JSON ➔ XML
@@ -1362,7 +1391,7 @@ export default function App() {
 
             <button
               onClick={() => handleFormat('to-yaml')}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
             >
               <FileCode2 className="w-3.5 h-3.5 text-teal-500" />
               JSON ➔ YAML
@@ -1370,7 +1399,7 @@ export default function App() {
 
             <button
               onClick={() => handleFormat('to-sql')}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 font-medium text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
             >
               <FileCode className="w-3.5 h-3.5 text-amber-500" />
               JSON ➔ SQL
@@ -1440,7 +1469,7 @@ export default function App() {
             {isChartableData(parsedData || inputText) && (
               <button
                 onClick={() => setIsChartsOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all cursor-pointer animate-pulse"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
                 title="Data contains numeric metrics eligible for interactive charting"
               >
                 <BarChart3 className="w-4 h-4 text-amber-300" />
@@ -1869,22 +1898,29 @@ export default function App() {
               </>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Universal Cross-Format Converter Bar */}
-        <div className="bg-zinc-900 text-white dark:bg-zinc-800/90 rounded-lg p-2.5 sm:px-4 shadow-sm flex flex-wrap items-center justify-between gap-3 border border-zinc-800 dark:border-zinc-700/80">
+        <section
+          aria-label="Universal format converter"
+          className="bg-zinc-900 text-white dark:bg-zinc-800/90 rounded-xl p-3 sm:px-4 shadow-sm flex flex-wrap items-center justify-between gap-3 border border-zinc-800 dark:border-zinc-700/80"
+        >
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
-            <span className="text-xs font-semibold tracking-wide text-zinc-200">
-              {t.universalConverter}:
-            </span>
+            <div>
+              <span className="block text-xs font-semibold tracking-wide text-zinc-100">
+                {t.universalConverter}
+              </span>
+              <span className="block text-[10px] text-zinc-400 mt-0.5">Choose formats, then convert locally</span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex w-full sm:w-auto items-center gap-2 text-xs">
             {/* Source Format */}
-            <div className="flex items-center gap-1.5 bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+            <div className="flex min-w-0 flex-1 sm:flex-none items-center gap-1.5 bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5">
               <span className="text-zinc-400 font-mono text-[11px]">{t.from}:</span>
               <select
+                aria-label="Source format"
                 value={inputFormat}
                 onChange={(e) => {
                   const newFmt = e.target.value as DataFormat;
@@ -1892,7 +1928,7 @@ export default function App() {
                   validateInputByFormat(inputText, newFmt);
                   runCrossConversion(newFmt, targetOutputFormat);
                 }}
-                className="bg-transparent text-white font-mono text-xs font-medium cursor-pointer focus:outline-none"
+                className="min-w-0 w-full sm:w-44 bg-transparent text-white font-mono text-xs font-medium cursor-pointer focus:outline-none"
               >
                 {READABLE_FORMATS.map((format) => (
                   <option key={format.id} value={format.id} className="bg-zinc-800 text-white">
@@ -1902,19 +1938,20 @@ export default function App() {
               </select>
             </div>
 
-            <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <ArrowRight className="hidden sm:block w-3.5 h-3.5 text-indigo-400 shrink-0" />
 
             {/* Target Format */}
-            <div className="flex items-center gap-1.5 bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+            <div className="flex min-w-0 flex-1 sm:flex-none items-center gap-1.5 bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5">
               <span className="text-zinc-400 font-mono text-[11px]">{t.to}:</span>
               <select
+                aria-label="Target format"
                 value={targetOutputFormat}
                 onChange={(e) => {
                   const newFmt = e.target.value as DataFormat;
                   setTargetOutputFormat(newFmt);
                   runCrossConversion(inputFormat, newFmt);
                 }}
-                className="bg-transparent text-white font-mono text-xs font-semibold cursor-pointer focus:outline-none"
+                className="min-w-0 w-full sm:w-48 bg-transparent text-white font-mono text-xs font-semibold cursor-pointer focus:outline-none"
               >
                 {WRITABLE_FORMATS.map((format) => (
                   <option key={format.id} value={format.id} className="bg-zinc-800 text-white">
@@ -1927,32 +1964,34 @@ export default function App() {
             {/* Execute Convert Button */}
             <button
               onClick={() => runCrossConversion(inputFormat, targetOutputFormat)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded text-xs transition-colors cursor-pointer shadow-xs"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer shadow-xs"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
               <span>Convert</span>
             </button>
           </div>
-        </div>
+        </section>
 
         {/* Dual Pane Layout */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-[500px]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:h-[calc(100vh-15.5rem)] lg:min-h-[520px] lg:max-h-[760px]">
           {/* Left Pane: Input Editor */}
           <div
+            role="region"
+            aria-labelledby="input-panel-title"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative flex flex-col bg-white dark:bg-zinc-900 border rounded-lg overflow-hidden shadow-xs transition-all ${
+            className={`relative h-[520px] sm:h-[620px] lg:h-full min-h-0 flex flex-col bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden shadow-xs transition-all ${
               isDragging
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/10 dark:bg-indigo-950/20'
                 : 'border-zinc-200 dark:border-zinc-800'
             }`}
           >
             {/* Input Header */}
-            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-xs font-sans">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                  Input
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-xs font-sans">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span id="input-panel-title" className="font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span className="mr-1 text-indigo-600 dark:text-indigo-300">1.</span>Input
                 </span>
                 <select
                   value={inputFormat}
@@ -1961,7 +2000,8 @@ export default function App() {
                     setInputFormat(newFmt);
                     validateInputByFormat(inputText, newFmt);
                   }}
-                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-0.5 text-zinc-800 dark:text-zinc-200 font-mono text-[11px] font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  aria-label="Input format"
+                  className="min-w-0 max-w-48 flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1 text-zinc-800 dark:text-zinc-200 font-mono text-[11px] font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   {READABLE_FORMATS.map((format) => (
                     <option key={format.id} value={format.id}>
@@ -1978,25 +2018,26 @@ export default function App() {
                       const detected = detectFormat(inputText);
                       setInputFormat(detected);
                       validateInputByFormat(inputText, detected);
-                      showToast(`Auto-deducted format: ${detected.toUpperCase()}`);
+                      showToast(`Detected format: ${detected.toUpperCase()}`);
                     } else {
-                      showToast(nextState ? 'Auto-deduct format ON' : 'Auto-deduct format OFF');
+                      showToast(nextState ? 'Auto-detect enabled' : 'Auto-detect disabled');
                     }
                   }}
+                  aria-pressed={autoDetectFormat}
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer border ${
                     autoDetectFormat
                       ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shadow-2xs'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
                   }`}
-                  title="Automatically deduce format from input text"
+                  title="Automatically detect the input format"
                 >
                   <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
-                  <span>Auto-Deduct {autoDetectFormat ? 'ON' : 'OFF'}</span>
+                  <span className="hidden min-[460px]:inline">Auto-detect {autoDetectFormat ? 'on' : 'off'}</span>
                 </button>
               </div>
 
               {/* Input Action Buttons */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 ml-auto">
                 <label className="inline-flex items-center gap-1 px-2 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer transition-colors text-[11px] font-medium">
                   <Upload className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Upload</span>
@@ -2047,9 +2088,10 @@ export default function App() {
                 </button>
 
                 <button
-                  onClick={() => handleInputChange('')}
+                  onClick={handleClearWorkspace}
                   className="p-1 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                  title="Clear input"
+                  title="Clear workspace"
+                  aria-label="Clear workspace"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -2063,12 +2105,14 @@ export default function App() {
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
                   <span className="font-medium truncate">{error.message}</span>
                 </div>
-                <button
-                  onClick={() => handleFormat('repair')}
-                  className="shrink-0 px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white font-sans font-medium rounded text-[11px] transition-colors cursor-pointer"
-                >
-                  Auto Repair
-                </button>
+                {(inputFormat === 'json' || inputFormat === 'json5') && (
+                  <button
+                    onClick={() => handleFormat('repair')}
+                    className="shrink-0 px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white font-sans font-medium rounded text-[11px] transition-colors cursor-pointer"
+                  >
+                    Auto Repair
+                  </button>
+                )}
               </div>
             )}
 
@@ -2077,7 +2121,7 @@ export default function App() {
               {/* Line Numbers Gutter */}
               <div
                 ref={lineNumbersRef}
-                className="select-none py-3 pl-2 pr-2 text-right text-zinc-400 dark:text-zinc-600 bg-zinc-50 dark:bg-zinc-900/90 border-r border-zinc-200 dark:border-zinc-800 w-11 shrink-0 overflow-hidden leading-relaxed text-[11px]"
+                className="select-none w-11 shrink-0 overflow-hidden border-r border-zinc-200 bg-zinc-50 py-3 pl-2 pr-2 text-right text-[11px] leading-relaxed text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-400"
               >
                 {Array.from({ length: Math.max(1, inputLinesCount) }, (_, i) => (
                   <div key={i}>{i + 1}</div>
@@ -2179,16 +2223,26 @@ export default function App() {
           </div>
 
           {/* Right Pane: Output Viewer */}
-          <div className="flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-xs">
+          <div
+            role="region"
+            aria-labelledby="output-panel-title"
+            className="h-[520px] sm:h-[620px] lg:h-full min-h-0 flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs"
+          >
             {/* Output Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-xs font-sans">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                  Output
+                <span id="output-panel-title" className="font-semibold text-zinc-700 dark:text-zinc-300">
+                  <span className="mr-1 text-indigo-600 dark:text-indigo-300">2.</span>Output
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 font-mono text-[10px]">
                   {activeActionTitle}
                 </span>
+                {isOutputStale && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium text-[10px]">
+                    <RefreshCw className="w-3 h-3" />
+                    Input changed
+                  </span>
+                )}
               </div>
 
               {/* Filter search box in code output */}
@@ -2235,8 +2289,20 @@ export default function App() {
             </div>
 
             {/* Output Display Body */}
-            <div className="flex-1 overflow-auto p-1 relative">
-              {outputViewMode === 'code' && (
+            <div className="flex-1 min-h-0 overflow-auto p-1 relative">
+              {!outputText && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-zinc-500 dark:text-zinc-400">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-3">
+                    <ArrowRight className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Output will appear here</h3>
+                  <p className="mt-1 text-xs max-w-xs">
+                    Add data to the input editor, then format it or choose a target format above.
+                  </p>
+                </div>
+              )}
+
+              {outputText && outputViewMode === 'code' && (
                 <SyntaxHighlighter
                   code={outputText}
                   language={outputLanguage}
@@ -2245,14 +2311,14 @@ export default function App() {
                 />
               )}
 
-              {outputViewMode === 'tree' && (
+              {outputText && outputViewMode === 'tree' && (
                 <TreeView
                   data={parsedData}
                   searchQuery={searchQuery}
                 />
               )}
 
-              {outputViewMode === 'table' && (
+              {outputText && outputViewMode === 'table' && (
                 <TableView
                   data={parsedData}
                   searchQuery={searchQuery}
@@ -2273,8 +2339,8 @@ export default function App() {
       </main>
 
       {/* SEO Footer Section */}
-      <footer className="mt-6 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 py-10 px-4 sm:px-8 text-zinc-600 dark:text-zinc-400 text-xs font-sans">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <footer className="mt-4 sm:mt-6 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 py-6 sm:py-10 px-4 sm:px-8 text-zinc-600 dark:text-zinc-400 text-xs font-sans">
+        <div className="max-w-7xl mx-auto space-y-5 sm:space-y-8">
           {/* Main Footer Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
             <div>
@@ -2298,7 +2364,7 @@ export default function App() {
           </div>
 
           {/* Formats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
+          <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
             <div>
               <h4 className="font-semibold text-zinc-900 dark:text-zinc-200 mb-2 font-mono uppercase tracking-wider text-[11px] text-indigo-500">
                 {t.coreFormats}
@@ -2353,7 +2419,7 @@ export default function App() {
           </div>
 
           {/* Developer FAQs for SEO & Search Crawlers */}
-          <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6 space-y-4">
+          <div className="hidden sm:block border-t border-zinc-200 dark:border-zinc-800 pt-6 space-y-4">
             <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-500" />
               {t.faqTitle}
@@ -2388,7 +2454,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-zinc-500">
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500 md:flex-row dark:border-zinc-800 dark:text-zinc-400">
             <div className="flex flex-wrap items-center gap-2">
               <span>© {new Date().getFullYear()} <a href="https://json.lolisoft.eu" className="hover:underline font-mono font-medium text-zinc-700 dark:text-zinc-300">json.lolisoft.eu</a>. {t.allRightsReserved}</span>
               
@@ -2417,7 +2483,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
               <a href="https://github.com/jomardyan/JSON-STUDIO" target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300">
                 <Github className="w-3 h-3" />
                 <span>GitHub Repository</span>
@@ -2485,6 +2551,7 @@ export default function App() {
           setOutputLanguage(format === 'sql' ? 'text' : 'json');
           setOutputViewMode('code');
           setActiveActionTitle(format === 'sql' ? 'SQL Script & Schema' : 'Parsed SQL to JSON');
+          setLastProcessedInput(inputText);
           showToast(`Generated ${format.toUpperCase()}`);
         }}
         sqlOptions={preferences.sqlOptions}
@@ -2598,6 +2665,7 @@ export default function App() {
           setIsValid(Boolean(parsed?.valid));
           setError(parsed?.valid ? null : { message: parsed?.error || `Invalid ${format} output` });
           setActiveActionTitle(`Batch ${getFormatAdapter(restoredFormat)?.name || restoredFormat}`);
+          setLastProcessedInput(convertedContent);
           showToast('Loaded batch output into main editor');
         }}
         language={currentLanguage}
@@ -2672,23 +2740,26 @@ export default function App() {
 
       {/* EU Compliant Privacy Banner */}
       {showPrivacyBanner && (
-        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 px-4 py-3 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-full duration-300 border-t border-zinc-700 dark:border-zinc-300">
-          <div className="flex items-start gap-3 max-w-4xl">
+        <aside
+          aria-label="Privacy notice"
+          className="fixed bottom-3 left-3 right-3 sm:left-1/2 sm:right-auto sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2 z-[100] bg-white/95 dark:bg-zinc-900/95 text-zinc-900 dark:text-zinc-100 px-4 py-3.5 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300 border border-zinc-200 dark:border-zinc-700 rounded-2xl backdrop-blur-xl"
+        >
+          <div className="flex items-start gap-3 min-w-0">
             <ShieldCheck className="w-5 h-5 text-indigo-400 dark:text-indigo-600 shrink-0 mt-0.5" />
-            <div className="text-sm">
+            <div className="text-sm min-w-0">
               <p className="font-semibold mb-0.5">{t.privacyTitle}</p>
-              <p className="text-zinc-300 dark:text-zinc-700 text-xs leading-relaxed">
+              <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed">
                 {t.privacyText}
               </p>
             </div>
           </div>
           <button
             onClick={handlePrivacyAccept}
-            className="shrink-0 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
+            className="shrink-0 self-end sm:self-center px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             {t.privacyAccept}
           </button>
-        </div>
+        </aside>
       )}
     </div>
   );
