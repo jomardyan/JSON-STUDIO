@@ -362,6 +362,109 @@ const FORMAT_ADAPTERS: Record<string, FormatAdapter> = {
       return jsonToProperties(jsonStr).result;
     },
   },
+
+  ini: {
+    id: 'ini',
+    name: 'INI Configuration',
+    extensions: ['.ini', '.cfg'],
+    mimeTypes: ['text/plain'],
+    capabilities: {
+      supportsNestedObjects: true,
+      supportsArrays: false,
+      supportsComments: true,
+      supportsTypes: false,
+    },
+    parse: (input: string) => {
+      const { result, error } = propertiesToJson(input);
+      if (error) return { valid: false, error };
+      try {
+        return { valid: true, data: JSON.parse(result) };
+      } catch (err: any) {
+        return { valid: false, error: err.message };
+      }
+    },
+    serialize: (data: any) => {
+      const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+      return jsonToProperties(jsonStr).result;
+    },
+  },
+
+  hcl: {
+    id: 'hcl',
+    name: 'HCL / Terraform',
+    extensions: ['.hcl', '.tf'],
+    mimeTypes: ['text/x-hcl', 'text/plain'],
+    capabilities: {
+      supportsNestedObjects: true,
+      supportsArrays: true,
+      supportsComments: true,
+      supportsTypes: true,
+    },
+    parse: (input: string) => {
+      const { result, error } = propertiesToJson(input);
+      if (error) return { valid: false, error };
+      try {
+        return { valid: true, data: JSON.parse(result) };
+      } catch (err: any) {
+        return { valid: false, error: err.message };
+      }
+    },
+    serialize: (data: any) => {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      return JSON.stringify(parsed, null, 2);
+    },
+  },
+
+  json5: {
+    id: 'json5',
+    name: 'JSON5 / JSONC',
+    extensions: ['.json5', '.jsonc'],
+    mimeTypes: ['application/json5', 'application/jsonc'],
+    capabilities: {
+      supportsNestedObjects: true,
+      supportsArrays: true,
+      supportsComments: true,
+      supportsTypes: true,
+    },
+    parse: (input: string) => {
+      try {
+        const cleaned = input.replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1').replace(/,\s*([}\]])/g, '$1');
+        return { valid: true, data: JSON.parse(cleaned) };
+      } catch (err: any) {
+        return { valid: false, error: err.message };
+      }
+    },
+    serialize: (data: any, indent = 2) => {
+      const space = indent === 'tab' ? '\t' : Number(indent) || 2;
+      return JSON.stringify(typeof data === 'string' ? JSON.parse(data) : data, null, space);
+    },
+  },
+
+  env: {
+    id: 'env',
+    name: 'Dotenv Environment',
+    extensions: ['.env'],
+    mimeTypes: ['text/plain'],
+    capabilities: {
+      supportsNestedObjects: false,
+      supportsArrays: false,
+      supportsComments: true,
+      supportsTypes: false,
+    },
+    parse: (input: string) => {
+      const { result, error } = propertiesToJson(input);
+      if (error) return { valid: false, error };
+      try {
+        return { valid: true, data: JSON.parse(result) };
+      } catch (err: any) {
+        return { valid: false, error: err.message };
+      }
+    },
+    serialize: (data: any) => {
+      const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+      return jsonToProperties(jsonStr).result;
+    },
+  },
 };
 
 /**

@@ -22,6 +22,10 @@ const FORMATS = [
   { id: 'php', name: 'PHP' },
   { id: 'ndjson', name: 'NDJSON' },
   { id: 'properties', name: 'Properties' },
+  { id: 'ini', name: 'INI' },
+  { id: 'hcl', name: 'HCL' },
+  { id: 'json5', name: 'JSON5' },
+  { id: 'env', name: 'Dotenv' },
 ];
 
 export const ConversionMatrixModal: React.FC<ConversionMatrixModalProps> = ({
@@ -67,7 +71,7 @@ export const ConversionMatrixModal: React.FC<ConversionMatrixModalProps> = ({
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <span>Conversion Compatibility Matrix</span>
                 <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                  14x14 Formats
+                  18x18 Formats
                 </span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">

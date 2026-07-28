@@ -131,7 +131,7 @@ import { LlmToolGeneratorModal } from './components/LlmToolGeneratorModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { ConversionMatrixModal } from './components/ConversionMatrixModal';
-import { deduplicateJsonArray, flattenNestedArray } from './utils/jsonUtils';
+import { deduplicateJsonArray, flattenNestedArray, isChartableData } from './utils/jsonUtils';
 import { getFileExtensionForFormat } from './adapters/formatRegistry';
 
 export default function App() {
@@ -309,6 +309,10 @@ export default function App() {
         ndjson: 'NDJSON',
         python: 'Python Dict',
         php: 'PHP Array',
+        ini: 'INI Config',
+        hcl: 'HCL / Terraform',
+        json5: 'JSON5 / JSONC',
+        env: 'Dotenv Environment',
       };
 
       const title = `${formatNames[fromFmt] || fromFmt.toUpperCase()} ➔ ${formatNames[toFmt] || toFmt.toUpperCase()}`;
@@ -1400,6 +1404,21 @@ export default function App() {
               </button>
             )}
 
+            {/* Auto-detected Visual Analytics & Chart Option */}
+            {isChartableData(parsedData || inputText) && (
+              <button
+                onClick={() => setIsChartsOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all cursor-pointer animate-pulse"
+                title="Data contains numeric metrics eligible for interactive charting"
+              >
+                <BarChart3 className="w-4 h-4 text-amber-300" />
+                <span>Visual Analytics & Chart</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/20 text-white font-extrabold uppercase">
+                  AUTO
+                </span>
+              </button>
+            )}
+
             {/* More Tools Dropdown */}
             <div className="relative">
               <button
@@ -1851,6 +1870,9 @@ export default function App() {
                 <option value="markdown" className="bg-zinc-800 text-white">Markdown Table</option>
                 <option value="ndjson" className="bg-zinc-800 text-white">NDJSON / JSON Lines</option>
                 <option value="properties" className="bg-zinc-800 text-white">.env / Properties</option>
+                <option value="ini" className="bg-zinc-800 text-white">INI Config</option>
+                <option value="hcl" className="bg-zinc-800 text-white">HCL / Terraform</option>
+                <option value="json5" className="bg-zinc-800 text-white">JSON5 / JSONC</option>
                 <option value="urlencoded" className="bg-zinc-800 text-white">URL Query String</option>
               </select>
             </div>
@@ -1882,6 +1904,9 @@ export default function App() {
                 <option value="python" className="bg-zinc-800 text-white">Python Dict</option>
                 <option value="php" className="bg-zinc-800 text-white">PHP Array</option>
                 <option value="properties" className="bg-zinc-800 text-white">.env / Properties</option>
+                <option value="ini" className="bg-zinc-800 text-white">INI Config</option>
+                <option value="hcl" className="bg-zinc-800 text-white">HCL / Terraform</option>
+                <option value="json5" className="bg-zinc-800 text-white">JSON5 / JSONC</option>
                 <option value="urlencoded" className="bg-zinc-800 text-white">URL Query String</option>
               </select>
             </div>

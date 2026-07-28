@@ -2444,4 +2444,43 @@ export function flattenNestedArray(input: string, indent: string | number = 2): 
   }
 }
 
+/**
+ * Automatically evaluates whether a parsed object or JSON payload is eligible for charting & visual analytics.
+ */
+export function isChartableData(data: any): boolean {
+  if (!data) return false;
+
+  let obj = data;
+  if (typeof data === 'string') {
+    try {
+      obj = JSON.parse(data);
+    } catch {
+      return false;
+    }
+  }
+
+  // 1. Array of Objects check
+  if (Array.isArray(obj) && obj.length > 0) {
+    const sample = obj[0];
+    if (typeof sample === 'object' && sample !== null) {
+      // Check if at least one property key contains numeric values across array items
+      const keys = Object.keys(sample);
+      return keys.some((k) => obj.some((item) => typeof item[k] === 'number' && !isNaN(item[k])));
+    }
+    // Array of numbers
+    if (obj.some((item) => typeof item === 'number' && !isNaN(item))) {
+      return true;
+    }
+  }
+
+  // 2. Object with multiple numeric properties check (e.g. key-value metrics)
+  if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+    const values = Object.values(obj);
+    const numericCount = values.filter((v) => typeof v === 'number' && !isNaN(v)).length;
+    return numericCount >= 2;
+  }
+
+  return false;
+}
+
 

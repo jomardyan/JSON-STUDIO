@@ -12,7 +12,11 @@ export type DataFormat =
   | 'ts-interface'
   | 'ndjson'
   | 'python'
-  | 'php';
+  | 'php'
+  | 'ini'
+  | 'hcl'
+  | 'json5'
+  | 'env';
 
 export type OutputViewMode = 'code' | 'tree' | 'table';
 
