@@ -219,6 +219,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     // 2. Converters
     // -----------------------------------------------------------------
     {
+      id: 'conv-matrix',
+      title: '14x14 Conversion Compatibility Matrix',
+      description: 'Interactive matrix showing format loss assessments & 1-click conversions',
+      category: 'Converters',
+      icon: <TableIcon className="w-4 h-4 text-indigo-500" />,
+      keywords: ['matrix', 'compatibility', 'formats', 'lossy', 'lossless'],
+      action: () => onOpenModal('matrix'),
+    },
+    {
       id: 'conv-csv',
       title: 'JSON ➔ CSV / Excel Spreadsheet',
       description: 'Convert JSON array to comma-separated values file',

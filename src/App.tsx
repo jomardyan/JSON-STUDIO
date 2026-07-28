@@ -130,6 +130,7 @@ import { JsonChartsModal } from './components/JsonChartsModal';
 import { LlmToolGeneratorModal } from './components/LlmToolGeneratorModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
+import { ConversionMatrixModal } from './components/ConversionMatrixModal';
 import { deduplicateJsonArray, flattenNestedArray } from './utils/jsonUtils';
 import { getFileExtensionForFormat } from './adapters/formatRegistry';
 
@@ -220,6 +221,9 @@ export default function App() {
 
   // AI & LLM Structured Spec state
   const [isLlmSpecOpen, setIsLlmSpecOpen] = React.useState<boolean>(false);
+
+  // Conversion Matrix Studio state
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = React.useState<boolean>(false);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
@@ -1265,6 +1269,7 @@ export default function App() {
         onOpenUrlFetcher={() => setIsUrlFetcherOpen(true)}
         onOpenCharts={() => setIsChartsOpen(true)}
         onOpenLlmSpec={() => setIsLlmSpecOpen(true)}
+        onOpenMatrixModal={() => setIsMatrixModalOpen(true)}
         onRunFormat={(action) => handleFormat(action as any)}
         onRunCrossConversion={(from, to) => runCrossConversion(from, to)}
       />
@@ -2620,12 +2625,20 @@ export default function App() {
           else if (modalName === 'url') setIsUrlFetcherOpen(true);
           else if (modalName === 'charts') setIsChartsOpen(true);
           else if (modalName === 'llm') setIsLlmSpecOpen(true);
+          else if (modalName === 'matrix') setIsMatrixModalOpen(true);
           else if (modalName === 'history') setIsHistoryOpen(true);
           else if (modalName === 'settings') setIsSettingsOpen(true);
           else if (modalName === 'shortcuts') setIsShortcutsOpen(true);
         }}
         onSelectSample={handleSelectSample}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+      />
+
+      {/* Conversion Compatibility Matrix Modal */}
+      <ConversionMatrixModal
+        isOpen={isMatrixModalOpen}
+        onClose={() => setIsMatrixModalOpen(false)}
+        onSelectConversion={(from, to) => runCrossConversion(from as any, to as any)}
       />
 
       {/* EU Compliant Privacy Banner */}

@@ -33,6 +33,7 @@ import {
   Search,
   WifiOff,
   Zap,
+  Table,
 } from 'lucide-react';
 import { Theme } from '../types';
 import { SAMPLE_DATASETS, SampleItem } from '../utils/samples';
@@ -69,6 +70,7 @@ interface HeaderProps {
   onOpenUrlFetcher?: () => void;
   onOpenCharts?: () => void;
   onOpenLlmSpec?: () => void;
+  onOpenMatrixModal?: () => void;
   // Converters
   onRunFormat?: (action: string) => void;
   onRunCrossConversion?: (from: string, to: string) => void;
@@ -104,6 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUrlFetcher,
   onOpenCharts,
   onOpenLlmSpec,
+  onOpenMatrixModal,
   onRunFormat,
   onRunCrossConversion,
 }) => {
@@ -454,6 +457,21 @@ export const Header: React.FC<HeaderProps> = ({
                       Standard Exporters
                     </div>
                     <div className="grid grid-cols-1 gap-0.5 mt-1">
+                      {onOpenMatrixModal && (
+                        <button
+                          onClick={() => { onOpenMatrixModal(); setShowConvertersMenu(false); }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-between cursor-pointer transition-colors font-medium border border-indigo-200/60 dark:border-indigo-800/60 mb-1"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Table className="w-3.5 h-3.5 text-indigo-500" />
+                            14x14 Compatibility Matrix
+                          </span>
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                            NEW
+                          </span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => { onRunFormat?.('to-csv'); setShowConvertersMenu(false); }}
                         className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-between cursor-pointer transition-colors"
