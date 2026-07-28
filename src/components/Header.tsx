@@ -31,6 +31,8 @@ import {
   Sparkles,
   Keyboard,
   Search,
+  WifiOff,
+  Zap,
 } from 'lucide-react';
 import { Theme } from '../types';
 import { SAMPLE_DATASETS, SampleItem } from '../utils/samples';
@@ -48,6 +50,7 @@ interface HeaderProps {
   onOpenShortcuts?: () => void;
   onOpenCommandPalette?: () => void;
   version?: string;
+  isOffline?: boolean;
   onSelectSample: (sample: SampleItem) => void;
   showInstallButton?: boolean;
   onInstallClick?: () => void;
@@ -83,6 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenShortcuts,
   onOpenCommandPalette,
   version = 'v2.7.0',
+  isOffline = false,
   onSelectSample,
   showInstallButton,
   onInstallClick,
@@ -137,6 +141,25 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-medium">
               Studio Pro
             </span>
+            
+            {/* Offline Mode Status Badge */}
+            {isOffline ? (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                title="Working offline — All features 100% available client-side"
+              >
+                <WifiOff className="w-3 h-3" />
+                <span>Offline</span>
+              </span>
+            ) : (
+              <span
+                className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                title="Service Worker Active — 100% Offline Ready"
+              >
+                <Zap className="w-3 h-3" />
+                <span>Ready</span>
+              </span>
+            )}
           </h1>
 
           {/* Quick Command Palette Search Trigger Button */}

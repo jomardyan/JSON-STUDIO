@@ -136,6 +136,11 @@ export default function App() {
   // Theme state
   const [theme, setTheme] = React.useState<Theme>(getSavedTheme);
 
+  // Network & Offline Mode state
+  const [isOffline, setIsOffline] = React.useState<boolean>(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+
   // Command Palette & Shortcuts state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = React.useState<boolean>(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = React.useState<boolean>(false);
@@ -981,6 +986,26 @@ export default function App() {
     }
   }, [searchQuery, outputText]);
 
+  // Network Online / Offline Listener
+  React.useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      showToast('Network Connected — Online Mode');
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      showToast('Working Offline — 100% Client-Side Engine Active');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // Global Keyboard Shortcuts Listener
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1246,6 +1271,7 @@ export default function App() {
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         version="v2.7.0"
+        isOffline={isOffline}
         onSelectSample={handleSelectSample}
         showInstallButton={showInstallButton}
         onInstallClick={handleInstallClick}

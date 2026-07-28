@@ -305,6 +305,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className="w-4 h-4 rounded text-zinc-900 accent-zinc-900 dark:accent-zinc-100 cursor-pointer"
             />
           </div>
+
+          {/* Offline Mode & PWA Cache Status */}
+          <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/60 space-y-1.5 mt-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Offline Mode & PWA Caching
+              </span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                100% Client-Side
+              </span>
+            </div>
+            <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
+              JSON Studio Pro runs completely inside your browser. All code formatting, XML/CSV/YAML conversions, SQL generation, and developer tools work without an active internet connection.
+            </p>
+          </div>
         </div>
 
         {/* Footer Actions */}
