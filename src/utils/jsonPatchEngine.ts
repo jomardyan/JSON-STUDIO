@@ -1,4 +1,4 @@
-import * as jsonpatch from 'fast-json-patch';
+import jsonpatch from 'fast-json-patch/index.mjs';
 
 export interface PatchOperation {
   op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
@@ -27,11 +27,11 @@ export function createRfc6902Patch(jsonA: string, jsonB: string): JsonPatchResul
     const docA = JSON.parse(jsonA);
     const docB = JSON.parse(jsonB);
 
-    const observer = jsonpatch.generate(docA, docB);
+    const patchOps = jsonpatch.compare(docA, docB);
 
     return {
-      patchOps: observer as PatchOperation[],
-      patchString: JSON.stringify(observer, null, 2),
+      patchOps: patchOps as PatchOperation[],
+      patchString: JSON.stringify(patchOps, null, 2),
     };
   } catch (err: any) {
     return {
@@ -83,7 +83,8 @@ export function createMergePatch(jsonA: string, jsonB: string): { mergePatchObj:
 
     function diff(a: any, b: any): any {
       if (typeof b !== 'object' || b === null || Array.isArray(b) || typeof a !== 'object' || a === null || Array.isArray(a)) {
-        return b;
+        // Compare primitives / arrays for equality — return undefined when unchanged
+        return JSON.stringify(a) === JSON.stringify(b) ? undefined : b;
       }
 
       const patch: Record<string, any> = {};
@@ -94,6 +95,10 @@ export function createMergePatch(jsonA: string, jsonB: string): { mergePatchObj:
         } else {
           const subPatch = diff(a[key], b[key]);
           if (subPatch !== undefined) {
+            // For object sub-patches, only include non-empty ones
+            if (typeof subPatch === 'object' && subPatch !== null && !Array.isArray(subPatch) && Object.keys(subPatch).length === 0) {
+              continue;
+            }
             patch[key] = subPatch;
           }
         }

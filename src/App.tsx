@@ -126,6 +126,8 @@ import { ObjectGraphModal } from './components/ObjectGraphModal';
 import { PayloadProfilerModal } from './components/PayloadProfilerModal';
 import { BatchProcessingModal } from './components/BatchProcessingModal';
 import { UrlFetcherModal } from './components/UrlFetcherModal';
+import { JsonChartsModal } from './components/JsonChartsModal';
+import { LlmToolGeneratorModal } from './components/LlmToolGeneratorModal';
 
 export default function App() {
   // Theme state
@@ -199,6 +201,12 @@ export default function App() {
 
   // URL / API Endpoint Fetcher state
   const [isUrlFetcherOpen, setIsUrlFetcherOpen] = React.useState<boolean>(false);
+
+  // Visual Charts Studio state
+  const [isChartsOpen, setIsChartsOpen] = React.useState<boolean>(false);
+
+  // AI & LLM Structured Spec state
+  const [isLlmSpecOpen, setIsLlmSpecOpen] = React.useState<boolean>(false);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
@@ -452,6 +460,70 @@ export default function App() {
             parsedObj = xmlToJson(inputText);
             const indentSpace = preferences.indent === 'tab' ? '\t' : Number(preferences.indent) || 2;
             resultText = JSON.stringify(parsedObj, null, indentSpace);
+          } else if (inputFormat === 'ndjson') {
+            title = 'NDJSON ➔ JSON';
+            lang = 'json';
+            const { result, error: ndErr } = ndjsonToJson(inputText, preferences.indent);
+            resultText = result;
+            if (ndErr) {
+              validState = false;
+              errDetail = { message: `NDJSON Parse Error: ${ndErr}` };
+            } else {
+              const val = validateJson(resultText);
+              validState = val.valid;
+              errDetail = val.error;
+              parsedObj = val.parsed;
+            }
+          } else if (inputFormat === 'sql') {
+            title = 'SQL ➔ JSON';
+            lang = 'json';
+            const { result, error: sqlErr } = sqlToJson(inputText, preferences.indent);
+            resultText = result;
+            if (sqlErr) {
+              validState = false;
+              errDetail = { message: `SQL Parse Error: ${sqlErr}` };
+            } else {
+              const val = validateJson(resultText);
+              validState = val.valid;
+              errDetail = val.error;
+              parsedObj = val.parsed;
+            }
+          } else if (inputFormat === 'markdown') {
+            title = 'Markdown ➔ JSON';
+            lang = 'json';
+            const { result, error: mdErr } = markdownTableToJson(inputText, preferences.indent);
+            resultText = result;
+            if (mdErr) {
+              validState = false;
+              errDetail = { message: `Markdown Parse Error: ${mdErr}` };
+            } else {
+              const val = validateJson(resultText);
+              validState = val.valid;
+              errDetail = val.error;
+              parsedObj = val.parsed;
+            }
+          } else if (inputFormat === 'python' || inputFormat === 'php') {
+            title = `${inputFormat.toUpperCase()} ➔ JSON`;
+            lang = 'json';
+            const rep = repairJson(inputText);
+            resultText = rep.repaired;
+            const val = validateJson(resultText);
+            validState = val.valid;
+            errDetail = val.error;
+            parsedObj = val.parsed;
+          } else if (inputFormat === 'yaml') {
+            title = 'YAML ➔ JSON';
+            lang = 'json';
+            const { result, error: ymlErr, parsed } = convertAnyFormat(inputText, 'yaml', 'json', { indent: preferences.indent });
+            resultText = result;
+            if (ymlErr) {
+              validState = false;
+              errDetail = { message: `YAML Parse Error: ${ymlErr}` };
+            } else {
+              validState = true;
+              errDetail = null;
+              parsedObj = parsed;
+            }
           } else {
             title = 'Formatted JSON';
             lang = 'json';
@@ -1054,6 +1126,8 @@ export default function App() {
         onOpenProfiler={() => setIsProfilerOpen(true)}
         onOpenBatch={() => setIsBatchModalOpen(true)}
         onOpenUrlFetcher={() => setIsUrlFetcherOpen(true)}
+        onOpenCharts={() => setIsChartsOpen(true)}
+        onOpenLlmSpec={() => setIsLlmSpecOpen(true)}
         onRunFormat={(action) => handleFormat(action as any)}
         onRunCrossConversion={(from, to) => runCrossConversion(from, to)}
       />
@@ -2286,6 +2360,20 @@ export default function App() {
           showToast('Loaded fetched API JSON into main editor');
         }}
         language={currentLanguage}
+      />
+
+      {/* Visual Analytics & Charts Modal */}
+      <JsonChartsModal
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        jsonData={parsedData || inputText}
+      />
+
+      {/* AI & LLM Structured Spec Generator Modal */}
+      <LlmToolGeneratorModal
+        isOpen={isLlmSpecOpen}
+        onClose={() => setIsLlmSpecOpen(false)}
+        jsonData={parsedData || inputText}
       />
 
       {/* EU Compliant Privacy Banner */}

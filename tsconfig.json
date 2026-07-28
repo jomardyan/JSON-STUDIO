@@ -18,6 +18,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "fast-json-patch": [
+        "./node_modules/fast-json-patch/index.js"
       ]
     },
     "allowImportingTsExtensions": true,

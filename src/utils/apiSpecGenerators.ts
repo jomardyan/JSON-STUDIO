@@ -53,7 +53,6 @@ export function generateOpenApiSchema(
           : { type: 'number', format: 'double', example: val };
       }
       if (typeof val === 'string') {
-        // Detect date/email/uuid format hints
         if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
           return { type: 'string', format: 'date-time', example: val };
         }
@@ -138,8 +137,6 @@ export function generateOpenApiSchema(
     };
 
     const schemaJson = JSON.stringify(schemaObj, null, 2);
-
-    // Simple JSON to YAML converter for display
     const schemaYaml = jsonToYaml(schemaObj);
 
     return { schemaJson, schemaYaml };
@@ -222,9 +219,9 @@ export function parseCurlAndGenerateSnippets(curlString: string): CurlParseResul
 
     // URL
     let url = 'https://api.example.com/v1/data';
-    const urlMatch = command.match(/curl\s+["']?(https?:\/\/[^\s"']+)["']?/i);
+    const urlMatch = command.match(/https?:\/\/[^\s"'\\]+/i);
     if (urlMatch) {
-      url = urlMatch[1];
+      url = urlMatch[0];
     }
 
     // Data / Body
@@ -234,7 +231,6 @@ export function parseCurlAndGenerateSnippets(curlString: string): CurlParseResul
       bodyDataStr = dataMatch[1];
       if (method === 'GET') method = 'POST';
     } else {
-      // Secondary fallback for unquoted body
       const rawDataMatch = command.match(/(?:-d|--data|--data-raw)\s+(\{[^}]+\})/);
       if (rawDataMatch) {
         bodyDataStr = rawDataMatch[1];
@@ -273,17 +269,27 @@ export function parseCurlAndGenerateSnippets(curlString: string): CurlParseResul
 }
 
 function generateFetchSnippet(method: string, url: string, headers: Record<string, string>, jsonBody: string): string {
-  const headerLines = Object.entries(headers)
+  const filteredHeaders = { ...headers };
+  delete filteredHeaders['Content-Type'];
+  delete filteredHeaders['content-type'];
+
+  const customHeaderLines = Object.entries(filteredHeaders)
     .map(([k, v]) => `    '${k}': '${v}',`)
     .join('\n');
+
+  const headersStr = `    'Content-Type': 'application/json'${customHeaderLines ? ',\n' + customHeaderLines : ''}`;
+
+  let bodyStr = 'null';
+  if (jsonBody) {
+    bodyStr = jsonBody;
+  }
 
   return `const response = await fetch('${url}', {
   method: '${method}',
   headers: {
-    'Content-Type': 'application/json',
-${headerLines}
+${headersStr}
   },
-  body: ${jsonBody ? JSON.stringify(jsonBody) : 'null'}
+  body: ${bodyStr !== 'null' ? `JSON.stringify(${bodyStr})` : 'null'}
 });
 
 const data = await response.json();
@@ -304,11 +310,24 @@ console.log(response.data);`;
 }
 
 function generatePythonSnippet(method: string, url: string, headers: Record<string, string>, jsonBody: string): string {
+  let pyPayload = 'None';
+  if (jsonBody) {
+    try {
+      const parsed = JSON.parse(jsonBody);
+      pyPayload = JSON.stringify(parsed, null, 4)
+        .replace(/\btrue\b/g, 'True')
+        .replace(/\bfalse\b/g, 'False')
+        .replace(/\bnull\b/g, 'None');
+    } catch {
+      pyPayload = `"${jsonBody.replace(/"/g, '\\"')}"`;
+    }
+  }
+
   return `import requests
 
 url = "${url}"
 headers = ${JSON.stringify(headers, null, 4)}
-payload = ${jsonBody || 'None'}
+payload = ${pyPayload}
 
 response = requests.${method.toLowerCase()}(
     url,
@@ -377,7 +396,6 @@ export function generateGraphQLSchema(
     function inferFieldType(val: any, fieldName: string): string {
       if (val === null || val === undefined) return 'String';
 
-      // Detect ID
       if (fieldName.toLowerCase() === 'id' || fieldName.toLowerCase() === '_id') {
         return 'ID!';
       }

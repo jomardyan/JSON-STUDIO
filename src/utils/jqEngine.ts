@@ -2,7 +2,7 @@
  * Pure JavaScript/TypeScript jq syntax evaluator for JSON objects.
  * Supports pipes (|), field selectors (.foo.bar), array iterations (.items[]),
  * indexing ([0]), functions (select, map, keys, length, has, sort, sort_by,
- * unique, join, split, first, last, to_entries, from_entries, etc.), and object/array construction.
+ * unique, reverse, first, last, to_entries, from_entries, join, split, etc.), and array construction.
  */
 
 export interface JqResult {
@@ -28,19 +28,22 @@ export function evaluateJq(jsonInput: string | any, jqQuery: string): JqResult {
     let current: any[] = [data];
 
     for (const stage of stages) {
+      const trimmedStage = stage.trim();
       const next: any[] = [];
+
       for (const item of current) {
-        const stageRes = evaluateStage(item, stage.trim());
-        if (Array.isArray(stageRes)) {
-          next.push(...stageRes);
-        } else if (stageRes !== undefined) {
-          next.push(stageRes);
+        if (item === null || item === undefined) continue;
+
+        const stageRes = evaluateStageOnItem(item, trimmedStage);
+        if (stageRes.isStream) {
+          next.push(...stageRes.value);
+        } else if (stageRes.value !== undefined) {
+          next.push(stageRes.value);
         }
       }
       current = next;
     }
 
-    // Unpack if single item or wrap if multiple
     const finalOutput = current.length === 1 ? current[0] : current;
 
     return {
@@ -57,7 +60,7 @@ export function evaluateJq(jsonInput: string | any, jqQuery: string): JqResult {
 }
 
 /**
- * Splits query by pipe '|', ignoring pipes inside quotes or brackets.
+ * Splits query by pipe '|', ignoring pipes inside quotes, brackets or parentheses.
  */
 function splitPipes(query: string): string[] {
   const stages: string[] = [];
@@ -102,156 +105,228 @@ function splitPipes(query: string): string[] {
   return stages;
 }
 
-function evaluateStage(val: any, expr: string): any {
-  if (val === null || val === undefined) return undefined;
+interface StageEvalResult {
+  value: any;
+  isStream: boolean; // True if result is an exploded array stream from iteration like .[] or .users[]
+}
 
-  // 1. Array wrapper [.users[] | .name]
+function evaluateStageOnItem(val: any, expr: string): StageEvalResult {
+  if (val === null || val === undefined) return { value: undefined, isStream: false };
+
+  // 1. Array construction wrapper [.users[] | .name]
   if (expr.startsWith('[') && expr.endsWith(']')) {
     const inner = expr.slice(1, -1).trim();
-    if (!inner) return Array.isArray(val) ? val : [val];
+    if (!inner) return { value: Array.isArray(val) ? val : [val], isStream: false };
     const subRes = evaluateJq(val, inner);
     if (subRes.error) throw new Error(subRes.error);
-    return Array.isArray(subRes.result) ? subRes.result : [subRes.result];
+    const arr = Array.isArray(subRes.result) ? subRes.result : (subRes.result !== undefined ? [subRes.result] : []);
+    return { value: arr, isStream: false };
   }
 
-  // 2. Function calls
+  // 2. Built-in functions
   if (expr.startsWith('select(') && expr.endsWith(')')) {
     const conditionStr = expr.slice(7, -1).trim();
-    return evaluateCondition(val, conditionStr) ? val : undefined;
+    const passed = evaluateCondition(val, conditionStr);
+    return { value: passed ? val : undefined, isStream: false };
   }
 
   if (expr.startsWith('map(') && expr.endsWith(')')) {
     const innerExpr = expr.slice(4, -1).trim();
-    if (!Array.isArray(val)) return [];
-    return val.map((item) => {
+    if (!Array.isArray(val)) return { value: [], isStream: false };
+    const mapped = val.map((item) => {
       const res = evaluateJq(item, innerExpr);
       return res.result;
     });
+    return { value: mapped, isStream: false };
   }
 
   if (expr === 'keys') {
     if (typeof val === 'object' && val !== null) {
-      return Object.keys(val);
+      return { value: Object.keys(val), isStream: false };
     }
-    return [];
+    return { value: [], isStream: false };
   }
 
   if (expr === 'length') {
-    if (Array.isArray(val) || typeof val === 'string') return val.length;
-    if (typeof val === 'object' && val !== null) return Object.keys(val).length;
-    return 0;
+    if (Array.isArray(val) || typeof val === 'string') return { value: val.length, isStream: false };
+    if (typeof val === 'object' && val !== null) return { value: Object.keys(val).length, isStream: false };
+    return { value: 0, isStream: false };
   }
 
   if (expr.startsWith('has(') && expr.endsWith(')')) {
     const key = expr.slice(4, -1).trim().replace(/^['"]|['"]$/g, '');
     if (typeof val === 'object' && val !== null) {
-      return key in val;
+      return { value: key in val, isStream: false };
     }
-    return false;
+    return { value: false, isStream: false };
   }
 
   if (expr === 'sort') {
-    if (!Array.isArray(val)) return val;
-    return [...val].sort();
+    if (!Array.isArray(val)) return { value: val, isStream: false };
+    return { value: [...val].sort(), isStream: false };
   }
 
   if (expr.startsWith('sort_by(') && expr.endsWith(')')) {
     const keyExpr = expr.slice(8, -1).trim();
-    if (!Array.isArray(val)) return val;
-    return [...val].sort((a, b) => {
+    if (!Array.isArray(val)) return { value: val, isStream: false };
+    const sorted = [...val].sort((a, b) => {
       const valA = evaluateJq(a, keyExpr).result;
       const valB = evaluateJq(b, keyExpr).result;
       if (valA < valB) return -1;
       if (valA > valB) return 1;
       return 0;
     });
+    return { value: sorted, isStream: false };
   }
 
   if (expr === 'unique') {
-    if (!Array.isArray(val)) return val;
-    return Array.from(new Set(val.map((x) => JSON.stringify(x)))).map((x) => JSON.parse(x));
+    if (!Array.isArray(val)) return { value: val, isStream: false };
+    const uniq = Array.from(new Set(val.map((x) => JSON.stringify(x)))).map((x) => JSON.parse(x));
+    return { value: uniq, isStream: false };
   }
 
   if (expr === 'reverse') {
-    if (!Array.isArray(val)) return val;
-    return [...val].reverse();
+    if (!Array.isArray(val)) return { value: val, isStream: false };
+    return { value: [...val].reverse(), isStream: false };
   }
 
   if (expr === 'first') {
-    return Array.isArray(val) ? val[0] : val;
+    return { value: Array.isArray(val) ? val[0] : val, isStream: false };
   }
 
   if (expr === 'last') {
-    return Array.isArray(val) ? val[val.length - 1] : val;
+    return { value: Array.isArray(val) ? val[val.length - 1] : val, isStream: false };
   }
 
   if (expr === 'to_entries') {
     if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-      return Object.entries(val).map(([k, v]) => ({ key: k, value: v }));
+      const entries = Object.entries(val).map(([k, v]) => ({ key: k, value: v }));
+      return { value: entries, isStream: false };
     }
-    return [];
+    return { value: [], isStream: false };
   }
 
   if (expr === 'from_entries') {
     if (Array.isArray(val)) {
       const obj: Record<string, any> = {};
       for (const item of val) {
-        if (item && item.key) obj[item.key] = item.value;
+        if (item && item.key !== undefined) obj[item.key] = item.value;
       }
-      return obj;
+      return { value: obj, isStream: false };
     }
-    return {};
+    return { value: {}, isStream: false };
   }
 
   if (expr.startsWith('join(') && expr.endsWith(')')) {
     const sep = expr.slice(5, -1).trim().replace(/^['"]|['"]$/g, '');
-    if (Array.isArray(val)) return val.join(sep);
-    return String(val);
+    if (Array.isArray(val)) return { value: val.join(sep), isStream: false };
+    return { value: String(val), isStream: false };
   }
 
-  // 3. Array Iterator .[] or .field[]
-  if (expr === '.[]') {
-    if (Array.isArray(val)) return val;
-    if (typeof val === 'object' && val !== null) return Object.values(val);
-    return undefined;
-  }
-
-  // Path accessor, e.g. .users[] or .users[0] or .users.name
-  if (expr.startsWith('.')) {
-    return evaluateDotPath(val, expr);
-  }
-
-  return val;
+  // 3. Path Access (e.g., .users[], .users[0].name, .name, .[])
+  return evaluatePathAccess(val, expr);
 }
 
-function evaluateDotPath(val: any, expr: string): any {
-  // Check if expression ends with []
-  if (expr.endsWith('[]')) {
-    const basePath = expr.slice(0, -2);
-    const baseVal = basePath === '.' ? val : evaluateDotPath(val, basePath);
-    if (Array.isArray(baseVal)) return baseVal;
-    if (typeof baseVal === 'object' && baseVal !== null) return Object.values(baseVal);
-    return undefined;
+function evaluatePathAccess(val: any, expr: string): StageEvalResult {
+  if (!expr.startsWith('.')) {
+    return { value: val, isStream: false };
   }
 
-  // Check array index e.g. .users[0]
-  const indexMatch = expr.match(/^(\.[a-zA-Z0-9_$]+)?\[(\d+)\]$/);
-  if (indexMatch) {
-    const basePath = indexMatch[1] || '.';
-    const idx = Number(indexMatch[2]);
-    const baseVal = basePath === '.' ? val : evaluateDotPath(val, basePath);
-    if (Array.isArray(baseVal)) return baseVal[idx];
-    return undefined;
+  // Parse path into segments
+  // Segments can be: prop (string), index (number), or iterate (Symbol)
+  const ITERATE = Symbol('ITERATE');
+  type Segment = string | number | typeof ITERATE;
+
+  const segments: Segment[] = [];
+  let remaining = expr.slice(1); // strip leading dot
+
+  while (remaining.length > 0) {
+    if (remaining.startsWith('[]')) {
+      segments.push(ITERATE);
+      remaining = remaining.slice(2);
+      if (remaining.startsWith('.')) remaining = remaining.slice(1);
+      continue;
+    }
+
+    const indexMatch = remaining.match(/^\[(-?\d+)\]/);
+    if (indexMatch) {
+      segments.push(Number(indexMatch[1]));
+      remaining = remaining.slice(indexMatch[0].length);
+      if (remaining.startsWith('.')) remaining = remaining.slice(1);
+      continue;
+    }
+
+    const keyMatch = remaining.match(/^([a-zA-Z0-9_$]+)/);
+    if (keyMatch) {
+      segments.push(keyMatch[1]);
+      remaining = remaining.slice(keyMatch[1].length);
+      if (remaining.startsWith('.')) remaining = remaining.slice(1);
+      continue;
+    }
+
+    // Quoted key e.g. ["key with space"]
+    const quotedMatch = remaining.match(/^\[["']([^"']+)["']\]/);
+    if (quotedMatch) {
+      segments.push(quotedMatch[1]);
+      remaining = remaining.slice(quotedMatch[0].length);
+      if (remaining.startsWith('.')) remaining = remaining.slice(1);
+      continue;
+    }
+
+    break;
   }
 
-  // Dot path traverse e.g. .user.address.city
-  const parts = expr.split('.').filter(Boolean);
-  let curr = val;
-  for (const p of parts) {
-    if (curr === null || curr === undefined) return undefined;
-    curr = curr[p];
+  if (segments.length === 0) {
+    return { value: val, isStream: false };
   }
-  return curr;
+
+  function resolveSegments(current: any, segIdx: number): { values: any[]; exploded: boolean } {
+    if (segIdx >= segments.length) {
+      return { values: [current], exploded: false };
+    }
+
+    if (current === null || current === undefined) {
+      return { values: [], exploded: false };
+    }
+
+    const seg = segments[segIdx];
+
+    if (seg === ITERATE) {
+      const items = Array.isArray(current)
+        ? current
+        : typeof current === 'object'
+        ? Object.values(current)
+        : [];
+
+      const results: any[] = [];
+      for (const item of items) {
+        const sub = resolveSegments(item, segIdx + 1);
+        results.push(...sub.values);
+      }
+      return { values: results, exploded: true };
+    }
+
+    if (typeof seg === 'number') {
+      if (!Array.isArray(current)) return { values: [], exploded: false };
+      const idx = seg < 0 ? current.length + seg : seg;
+      return resolveSegments(current[idx], segIdx + 1);
+    }
+
+    if (typeof seg === 'string') {
+      if (typeof current !== 'object') return { values: [], exploded: false };
+      return resolveSegments(current[seg], segIdx + 1);
+    }
+
+    return { values: [], exploded: false };
+  }
+
+  const { values, exploded } = resolveSegments(val, 0);
+
+  if (exploded) {
+    return { value: values, isStream: true };
+  } else {
+    return { value: values.length > 0 ? values[0] : undefined, isStream: false };
+  }
 }
 
 function evaluateCondition(val: any, conditionStr: string): boolean {
@@ -273,9 +348,9 @@ function evaluateCondition(val: any, conditionStr: string): boolean {
 
     switch (op) {
       case '==':
-        return leftVal == rightVal;
+        return leftVal === rightVal;
       case '!=':
-        return leftVal != rightVal;
+        return leftVal !== rightVal;
       case '>':
         return leftVal > rightVal;
       case '<':
@@ -287,7 +362,6 @@ function evaluateCondition(val: any, conditionStr: string): boolean {
     }
   }
 
-  // Boolean check
   const checkVal = evaluateJq(val, conditionStr).result;
   return Boolean(checkVal);
 }

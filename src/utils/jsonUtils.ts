@@ -50,17 +50,12 @@ export function detectFormat(input: string): DataFormat {
     return 'sql';
   }
 
-  // 6. TOML check
-  if (/^\[[a-zA-Z0-9_.-]+\]/m.test(trimmed) || /^[a-zA-Z0-9_.-]+\s*=\s*(?:"[^"]*"|'[^']*'|\d+|true|false|\[)/m.test(trimmed)) {
-    return 'toml';
-  }
-
-  // 7. URL Query String check
+  // 6. URL Query String check
   if ((trimmed.includes('=') && trimmed.includes('&')) || /^https?:\/\//i.test(trimmed) || /^\?[a-zA-Z0-9_.]+=/i.test(trimmed)) {
     return 'urlencoded';
   }
 
-  // 8. CSV check (multiple lines with matching column count)
+  // 7. CSV check (multiple lines with matching column count) — before TOML/YAML to avoid false positives
   if (lines.length > 1) {
     const firstDelim = [',', '\t', ';', '|'].find((d) => lines[0].includes(d));
     if (firstDelim) {
@@ -69,6 +64,11 @@ export function detectFormat(input: string): DataFormat {
         return 'csv';
       }
     }
+  }
+
+  // 8. TOML check
+  if (/^\[[a-zA-Z0-9_.-]+\]/m.test(trimmed) || /^[a-zA-Z0-9_.-]+\s*=\s*(?:"[^"]*"|'[^']*'|\d+|true|false|\[)/m.test(trimmed)) {
+    return 'toml';
   }
 
   // 9. YAML check
@@ -207,13 +207,9 @@ export function repairJson(input: string): { repaired: string; fixed: boolean; m
   // Match key patterns before colon
   str = str.replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":');
 
-  // 4. Replace single quotes around strings with double quotes
-  // Simple regex for string replacement, handling escaped quotes
-  str = str.replace(/'((?:\\.|[^'\\])*)'/g, (_match, group) => {
-    // Escape internal unescaped double quotes and unescape escaped single quotes
-    const sanitized = group.replace(/"/g, '\\"').replace(/\\'/g, "'");
-    return `"${sanitized}"`;
-  });
+  // 4. Replace single-quoted string values with double quotes.
+  // Uses a stateful parser to avoid breaking on apostrophes inside values.
+  str = replaceSingleQuotedStrings(str);
 
   // 5. Remove trailing commas before } or ]
   str = str.replace(/,\s*([}\]])/g, '$1');
@@ -358,8 +354,66 @@ function parsePrimitive(val: string): any {
   if (trimmed.toLowerCase() === 'true') return true;
   if (trimmed.toLowerCase() === 'false') return false;
   if (trimmed.toLowerCase() === 'null') return null;
-  if (!isNaN(Number(trimmed)) && !trimmed.startsWith('0x')) return Number(trimmed);
+  // Avoid coercing leading-zero strings like "007", "01234" (zip codes, IDs) to numbers.
+  // Allow "0", "0.5", etc.
+  if (
+    !isNaN(Number(trimmed)) &&
+    !trimmed.startsWith('0x') &&
+    !(trimmed.length > 1 && trimmed.startsWith('0') && !trimmed.startsWith('0.'))
+  ) {
+    return Number(trimmed);
+  }
   return val;
+}
+
+/**
+ * Replaces single-quoted JSON string values with double quotes,
+ * handling apostrophes inside words (e.g. O'Brien) correctly.
+ */
+function replaceSingleQuotedStrings(str: string): string {
+  let result = '';
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] === '"') {
+      // Skip double-quoted string
+      result += '"';
+      i++;
+      while (i < str.length && str[i] !== '"') {
+        if (str[i] === '\\') { result += str[i++]; }
+        if (i < str.length) { result += str[i++]; }
+      }
+      if (i < str.length) { result += str[i++]; } // closing "
+    } else if (str[i] === "'") {
+      // Check if this is a JSON string value (preceded by : or , or [ or start)
+      const preceding = result.trimEnd();
+      const lastChar = preceding[preceding.length - 1];
+      if (lastChar === ':' || lastChar === ',' || lastChar === '[' || lastChar === '{') {
+        // Collect until matching unescaped single quote
+        i++; // skip opening '
+        let inner = '';
+        while (i < str.length) {
+          if (str[i] === "'" && str[i + 1] !== "'") {
+            // Check if this is a closing quote (not an apostrophe mid-word)
+            // Heuristic: closing quote is followed by ,  }  ] or whitespace+one of those
+            const after = str.slice(i + 1).trimStart();
+            if (!after || /^[,}\]:]/.test(after)) {
+              break; // closing quote
+            }
+          }
+          if (str[i] === '\\') { inner += str[i++]; }
+          if (i < str.length) { inner += str[i++]; }
+        }
+        const sanitized = inner.replace(/"/g, '\\"').replace(/\\'/g, "'");
+        result += `"${sanitized}"`;
+        if (i < str.length) i++; // skip closing '
+      } else {
+        result += str[i++];
+      }
+    } else {
+      result += str[i++];
+    }
+  }
+  return result;
 }
 
 function detectDelimiter(csv: string): string {
@@ -481,16 +535,46 @@ function escapeXml(str: string): string {
  * Converts XML string to JSON using browser DOMParser.
  */
 export function xmlToJson(xmlStr: string): any {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlStr, 'text/xml');
+  if (!xmlStr || !xmlStr.trim()) return null;
 
-  // Check parsing error
-  const parserError = xmlDoc.getElementsByTagName('parsererror')[0];
-  if (parserError) {
-    throw new Error(`XML Parsing Error: ${parserError.textContent || 'Invalid XML'}`);
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlStr, 'text/xml');
+
+    // Check parsing error
+    const parserError = xmlDoc.getElementsByTagName('parsererror')[0];
+    if (parserError) {
+      throw new Error(`XML Parsing Error: ${parserError.textContent || 'Invalid XML'}`);
+    }
+
+    return domNodeToObj(xmlDoc.documentElement);
   }
 
-  return domNodeToObj(xmlDoc.documentElement);
+  // Fallback for non-browser / test environment
+  return simpleXmlToJsonFallback(xmlStr);
+}
+
+function simpleXmlToJsonFallback(xmlStr: string): any {
+  const clean = xmlStr.replace(/<\?xml[^>]*\?>/gi, '').trim();
+  const tagRegex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+  const result: Record<string, any> = {};
+  let match;
+  let count = 0;
+  while ((match = tagRegex.exec(clean)) !== null) {
+    count++;
+    const key = match[1];
+    const valStr = match[2].trim();
+    // Use a separate regex to test for nested tags (avoid mutating tagRegex.lastIndex)
+    const hasNestedTags = /<[a-zA-Z0-9_-]+>[\s\S]*?<\/[a-zA-Z0-9_-]+>/.test(valStr);
+    const val = hasNestedTags ? simpleXmlToJsonFallback(valStr) : parsePrimitive(valStr);
+    if (result[key] !== undefined) {
+      if (!Array.isArray(result[key])) result[key] = [result[key]];
+      result[key].push(val);
+    } else {
+      result[key] = val;
+    }
+  }
+  return count > 0 ? result : parsePrimitive(clean);
 }
 
 function domNodeToObj(node: Element): any {
@@ -579,9 +663,10 @@ export function calculateStats(parsedJson: any, inputText: string, outputText: s
 
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
+  if (bytes < 0) return '-' + formatBytes(-bytes);
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -877,11 +962,11 @@ export function generateJsonSchema(input: string, indent: string | number = 2): 
       return { type: 'string' };
     }
 
+    const builtSchema = buildSchema(parsed);
     const schema = {
       $schema: 'http://json-schema.org/draft-07/schema#',
       title: 'GeneratedSchema',
-      type: typeof parsed === 'object' && parsed !== null ? (Array.isArray(parsed) ? 'array' : 'object') : typeof parsed,
-      ...buildSchema(parsed),
+      ...builtSchema,
     };
 
     return { result: JSON.stringify(schema, null, space) };
@@ -904,7 +989,13 @@ export function jsonToYaml(input: string): { result: string; error?: string } {
       if (typeof val === 'boolean') return val ? 'true' : 'false';
       if (typeof val === 'number') return String(val);
       if (typeof val === 'string') {
-        if (val.includes('\n') || val.includes(':') || val.includes('#') || val.includes('"') || val.includes("'")) {
+        // Quote strings that could be misinterpreted as YAML scalars (booleans, numbers, nulls)
+        if (
+          val.includes('\n') || val.includes(':') || val.includes('#') ||
+          val.includes('"') || val.includes("'") ||
+          /^(true|false|null|yes|no|on|off)$/i.test(val) ||
+          (!isNaN(Number(val)) && val.trim() !== '')
+        ) {
           return `"${val.replace(/"/g, '\\"')}"`;
         }
         return val || '""';
@@ -1357,6 +1448,12 @@ export function urlEncodedToJson(input: string, indent: string | number = 2): { 
     const space = indent === 'tab' ? '\t' : Number(indent) || 2;
     let queryString = input.trim();
 
+    // Extract query string from full URL (e.g. https://example.com/api?key=val)
+    const qIdx = queryString.indexOf('?');
+    if (qIdx !== -1 && /^https?:\/\//i.test(queryString)) {
+      queryString = queryString.slice(qIdx + 1);
+    }
+
     // Strip leading ? or # if copied directly from URL
     if (queryString.startsWith('?') || queryString.startsWith('#')) {
       queryString = queryString.slice(1);
@@ -1396,7 +1493,7 @@ export function jsonToProperties(input: string): { result: string; error?: strin
     const lines: string[] = ['# Generated properties file'];
 
     for (const key of Object.keys(flat)) {
-      const formattedKey = key.toUpperCase().replace(/[^a-zA-Z0-9_.]/g, '_');
+      const formattedKey = key.replace(/[^a-zA-Z0-9_.]/g, '_');
       const val = flat[key];
       const strVal = val === null || val === undefined ? '' : String(val);
       lines.push(`${formattedKey}=${strVal}`);
@@ -1504,6 +1601,26 @@ export function jsonToTsInterface(input: string, rootName = 'RootObject'): { res
 }
 
 /**
+ * Parses a TOML value string, stripping surrounding quotes for string values.
+ */
+function parseTomlValue(rawVal: string): any {
+  // Strip surrounding double or single quotes for TOML string values
+  if ((rawVal.startsWith('"') && rawVal.endsWith('"')) || (rawVal.startsWith("'") && rawVal.endsWith("'"))) {
+    return rawVal.slice(1, -1);
+  }
+  // Handle TOML inline arrays: [1, 2, 3] or ["a", "b"]
+  if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+    try {
+      return JSON.parse(rawVal);
+    } catch {
+      // Fallback: split by comma and parse each element
+      return rawVal.slice(1, -1).split(',').map((v) => parseTomlValue(v.trim()));
+    }
+  }
+  return parsePrimitive(rawVal);
+}
+
+/**
  * Converts JSON to basic TOML format.
  */
 export function jsonToToml(input: string): { result: string; error?: string } {
@@ -1565,8 +1682,14 @@ export function tomlToJson(input: string, indent: string | number = 2): { result
 
       if (line.startsWith('[') && line.endsWith(']')) {
         const tableName = line.slice(1, -1).trim();
-        root[tableName] = root[tableName] || {};
-        currentTable = root[tableName];
+        // Support dotted table names like [database.connection]
+        const parts = tableName.split('.');
+        let target: Record<string, any> = root;
+        for (const part of parts) {
+          target[part] = target[part] || {};
+          target = target[part] as Record<string, any>;
+        }
+        currentTable = target;
         continue;
       }
 
@@ -1574,7 +1697,7 @@ export function tomlToJson(input: string, indent: string | number = 2): { result
       if (eqIdx !== -1) {
         const key = line.slice(0, eqIdx).trim();
         const rawVal = line.slice(eqIdx + 1).trim();
-        currentTable[key] = parsePrimitive(rawVal);
+        currentTable[key] = parseTomlValue(rawVal);
       }
     }
 
@@ -2029,6 +2152,10 @@ export function maskSensitiveData(
       'auth',
       'access_token',
       'refresh_token',
+      'email',
+      'mail',
+      'phone',
+      'mobile',
     ];
 
     const allKeys = Array.from(

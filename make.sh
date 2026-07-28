@@ -58,7 +58,6 @@ case "$COMMAND" in
   clean)
     echo -e "${YELLOW}==> Cleaning dist and build cache...${RESET}"
     npm run clean
-    rm -rf .vite node_modules/.vite
     echo -e "${GREEN} Clean completed.${RESET}"
     ;;
   check)

@@ -60,6 +60,8 @@ interface HeaderProps {
   onOpenProfiler?: () => void;
   onOpenBatch?: () => void;
   onOpenUrlFetcher?: () => void;
+  onOpenCharts?: () => void;
+  onOpenLlmSpec?: () => void;
   // Converters
   onRunFormat?: (action: string) => void;
   onRunCrossConversion?: (from: string, to: string) => void;
@@ -90,6 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfiler,
   onOpenBatch,
   onOpenUrlFetcher,
+  onOpenCharts,
+  onOpenLlmSpec,
   onRunFormat,
   onRunCrossConversion,
 }) => {
@@ -338,6 +342,36 @@ export const Header: React.FC<HeaderProps> = ({
                           <div>
                             <div className="font-semibold text-zinc-900 dark:text-zinc-100">URL & API Endpoint Fetcher</div>
                             <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Fetch live JSON from remote APIs</div>
+                          </div>
+                        </button>
+                      )}
+
+                      {onOpenCharts && (
+                        <button
+                          onClick={() => { onOpenCharts(); setShowToolsMenu(false); }}
+                          className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 text-zinc-800 dark:text-zinc-200 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                        >
+                          <div className="p-1 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                            <BarChart3 className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">Visual Analytics & Charts</div>
+                            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Interactive Bar, Line & Pie graphs</div>
+                          </div>
+                        </button>
+                      )}
+
+                      {onOpenLlmSpec && (
+                        <button
+                          onClick={() => { onOpenLlmSpec(); setShowToolsMenu(false); }}
+                          className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-purple-50/80 dark:hover:bg-purple-950/40 text-zinc-800 dark:text-zinc-200 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                        >
+                          <div className="p-1 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">AI / LLM Structured Spec</div>
+                            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">OpenAI, Gemini & Zod schemas</div>
                           </div>
                         </button>
                       )}
