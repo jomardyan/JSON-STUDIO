@@ -22,10 +22,49 @@ interface ReleaseEntry {
 
 const CHANGELOG_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v2.6.0',
+    version: 'v2.7.0',
     date: 'July 28, 2026',
     badge: 'Latest',
     badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    changes: [
+      {
+        category: 'Spotlight Command Palette & Function Search (Ctrl+K)',
+        items: [
+          'Added VS Code-style Spotlight Command Palette (Ctrl+K / Cmd+K) for instant fuzzy search across 45+ capabilities, formatters, converters, developer tools, and sample datasets.',
+          'Full keyboard arrow key navigation (Up/Down), Enter execution, and Esc dismissal.',
+          'Quick search trigger button added to top navigation header.'
+        ]
+      },
+      {
+        category: 'Visual Analytics & AI Tool Spec Generators',
+        items: [
+          'Chart Studio: Render interactive Bar, Line, Area, and Pie charts directly from JSON datasets.',
+          'AI / LLM Spec Generator: Generate OpenAI function declarations, Gemini tool specs, Zod schemas, and TypeBox types from JSON payloads.'
+        ]
+      },
+      {
+        category: 'User Experience (UX) & Editor Enhancements',
+        items: [
+          'Added Keyboard Shortcuts Cheat Sheet modal (Ctrl+/) and hotkeys (Ctrl+Enter Format, Ctrl+Shift+M Minify, Ctrl+Shift+R Repair, Ctrl+Shift+X Swap).',
+          'Empty editor quick-start chips with 1-click sample loads and clipboard paste.',
+          '1-Click Swap (⇄) button to feed output conversion results back into input for chained transformations.',
+          'Real-time search match counter badge in output code view.'
+        ]
+      },
+      {
+        category: 'Array Utilities & Core Bug Fixes',
+        items: [
+          'Added Array Deduplication (dedupe-array) and multi-dimensional Array Flattening (flatten-nested-array).',
+          'Fixed 13 parser & generator bugs including XML fallback regex statefulness, leading-zero number coercion, TOML dotted headers, and YAML string quoting.'
+        ]
+      }
+    ]
+  },
+  {
+    version: 'v2.6.0',
+    date: 'July 28, 2026',
+    badge: 'Major',
+    badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
     changes: [
       {
         category: 'Toolbar Layout & Overlap Fixes',
@@ -40,13 +79,6 @@ const CHANGELOG_RELEASES: ReleaseEntry[] = [
         items: [
           'Full integration of 12 modal studios: SQL Studio, JSON Side-by-Side Diff, PII Masking & JSONPath, Multi-Lang Code Models, jq Playground, RFC 6902 Patch, OpenAPI/cURL Specs, JWT Inspector, ER Graph, Payload Profiler, Batch Processor, and URL Fetcher.',
           'Direct payload injection from modals back into the main JSON Studio workspace.'
-        ]
-      },
-      {
-        category: 'SEO, Metadata & AI Crawlers',
-        items: [
-          'Updated structured JSON-LD schemas (WebApplication & FAQPage) for rich Google Search snippets.',
-          'Maintained machine-readable AI manifests (llms.txt & llms-full.txt) and indexed XML sitemaps for search engines.'
         ]
       }
     ]
@@ -101,7 +133,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   isOpen,
   onClose,
   language = 'en',
-  currentVersion = 'v2.6.0',
+  currentVersion = 'v2.7.0',
 }) => {
   const t = getTranslation((language as SupportedLanguage) || 'en');
 

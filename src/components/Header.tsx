@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenChangelog,
   onOpenShortcuts,
   onOpenCommandPalette,
-  version = 'v2.6.0',
+  version = 'v2.7.0',
   onSelectSample,
   showInstallButton,
   onInstallClick,

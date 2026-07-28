@@ -1,7 +1,7 @@
 {
   "name": "json-studio-pro",
   "private": true,
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Universal Multi-Format Data Converter & Developer Studio for JSON, XML, CSV, YAML, TOML, SQL, and JWT",
   "homepage": "https://github.com/jomardyan/JSON-STUDIO#readme",
   "repository": {

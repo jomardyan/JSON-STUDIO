@@ -1245,7 +1245,7 @@ export default function App() {
         onOpenChangelog={() => setIsChangelogOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        version="v2.6.0"
+        version="v2.7.0"
         onSelectSample={handleSelectSample}
         showInstallButton={showInstallButton}
         onInstallClick={handleInstallClick}
@@ -2373,7 +2373,7 @@ export default function App() {
 
               {/* Version Badge */}
               <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                v2.6.0
+                v2.7.0
               </span>
             </div>
 
@@ -2394,7 +2394,7 @@ export default function App() {
               <span>•</span>
               <button onClick={() => setIsChangelogOpen(true)} className="hover:underline font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer flex items-center gap-1">
                 <span>{t.changelog}</span>
-                <span className="text-[10px] font-mono font-bold">(v2.6.0)</span>
+                <span className="text-[10px] font-mono font-bold">(v2.7.0)</span>
               </button>
             </div>
           </div>
