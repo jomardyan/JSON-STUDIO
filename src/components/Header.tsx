@@ -29,6 +29,8 @@ import {
   Code,
   Boxes,
   Sparkles,
+  Keyboard,
+  Search,
 } from 'lucide-react';
 import { Theme } from '../types';
 import { SAMPLE_DATASETS, SampleItem } from '../utils/samples';
@@ -43,6 +45,8 @@ interface HeaderProps {
   onOpenHistory: () => void;
   onOpenSettings: () => void;
   onOpenChangelog?: () => void;
+  onOpenShortcuts?: () => void;
+  onOpenCommandPalette?: () => void;
   version?: string;
   onSelectSample: (sample: SampleItem) => void;
   showInstallButton?: boolean;
@@ -76,6 +80,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHistory,
   onOpenSettings,
   onOpenChangelog,
+  onOpenShortcuts,
+  onOpenCommandPalette,
   version = 'v2.6.0',
   onSelectSample,
   showInstallButton,
@@ -132,6 +138,21 @@ export const Header: React.FC<HeaderProps> = ({
               Studio Pro
             </span>
           </h1>
+
+          {/* Quick Command Palette Search Trigger Button */}
+          {onOpenCommandPalette && (
+            <button
+              onClick={onOpenCommandPalette}
+              className="hidden lg:inline-flex items-center gap-2 px-2.5 py-1 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 rounded-lg border border-zinc-200 dark:border-zinc-700/80 transition-colors cursor-pointer ml-2"
+              title="Search features & commands (Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Search features...</span>
+              <kbd className="px-1.5 py-0.2 text-[10px] font-mono font-semibold rounded bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                Ctrl+K
+              </kbd>
+            </button>
+          )}
         </div>
 
         {/* Center Top Navbar - Submenu Tools & Categories */}
@@ -556,32 +577,40 @@ export const Header: React.FC<HeaderProps> = ({
             {showSamplesMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowSamplesMenu(false)} />
-                <div className="absolute left-0 mt-2 w-72 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 py-1 divide-y divide-zinc-100 dark:divide-zinc-800/80 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 uppercase tracking-wider">
-                    {t.samples} & Test Payloads
-                  </div>
-                  <div className="py-1">
-                    {SAMPLE_DATASETS.map((sample) => (
-                      <button
-                        key={sample.id}
-                        onClick={() => {
-                          onSelectSample(sample);
-                          setShowSamplesMenu(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs flex flex-col gap-0.5 transition-colors cursor-pointer"
-                      >
-                        <div className="font-medium text-zinc-800 dark:text-zinc-200 flex items-center justify-between">
-                          <span>{sample.name}</span>
-                          <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
-                            {sample.format}
-                          </span>
+                <div className="absolute left-0 mt-2 w-80 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 p-2 text-xs divide-y divide-zinc-100 dark:divide-zinc-800/80 max-h-[80vh] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                  {(['Core JSON', 'Conversions', 'Dev Tools', 'AI & Analytics'] as const).map((cat) => {
+                    const catSamples = SAMPLE_DATASETS.filter((s) => s.category === cat);
+                    if (catSamples.length === 0) return null;
+                    return (
+                      <div key={cat} className="py-1.5 first:pt-0 last:pb-0">
+                        <div className="px-2 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          {cat}
                         </div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
-                          {sample.description}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                        <div className="space-y-0.5 mt-0.5">
+                          {catSamples.map((sample) => (
+                            <button
+                              key={sample.id}
+                              onClick={() => {
+                                onSelectSample(sample);
+                                setShowSamplesMenu(false);
+                              }}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs flex flex-col gap-0.5 transition-colors cursor-pointer group"
+                            >
+                              <div className="font-medium text-zinc-800 dark:text-zinc-200 flex items-center justify-between">
+                                <span className="group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{sample.name}</span>
+                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                                  {sample.format}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                                {sample.description}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -604,6 +633,17 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+
+          {/* Keyboard Shortcuts Button */}
+          {onOpenShortcuts && (
+            <button
+              onClick={onOpenShortcuts}
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer shadow-2xs"
+              title="Keyboard Shortcuts Cheat Sheet (Ctrl+/)"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-indigo-500" />
+            </button>
+          )}
 
           {/* GitHub Open Source Link */}
           <a

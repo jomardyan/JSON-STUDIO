@@ -128,10 +128,17 @@ import { BatchProcessingModal } from './components/BatchProcessingModal';
 import { UrlFetcherModal } from './components/UrlFetcherModal';
 import { JsonChartsModal } from './components/JsonChartsModal';
 import { LlmToolGeneratorModal } from './components/LlmToolGeneratorModal';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { CommandPaletteModal } from './components/CommandPaletteModal';
+import { deduplicateJsonArray, flattenNestedArray } from './utils/jsonUtils';
 
 export default function App() {
   // Theme state
   const [theme, setTheme] = React.useState<Theme>(getSavedTheme);
+
+  // Command Palette & Shortcuts state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = React.useState<boolean>(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = React.useState<boolean>(false);
 
   // Preferences
   const [preferences, setPreferences] = React.useState<UserPreferences>(getUserPreferences);
@@ -378,6 +385,8 @@ export default function App() {
         | 'flatten'
         | 'unflatten'
         | 'to-schema'
+        | 'dedupe-array'
+        | 'flatten-nested-array'
         | 'to-yaml'
         | 'to-csv'
         | 'to-xml'
@@ -656,6 +665,35 @@ export default function App() {
           validState = val.valid;
           errDetail = val.error;
           parsedObj = val.parsed;
+        } else if (actionType === 'dedupe-array') {
+          title = 'Deduplicated Array';
+          lang = 'json';
+          const { result, count, error: dedupeErr } = deduplicateJsonArray(inputText, preferences.indent);
+          resultText = result;
+          if (dedupeErr) {
+            validState = false;
+            errDetail = { message: dedupeErr };
+          } else {
+            const val = validateJson(resultText);
+            validState = val.valid;
+            errDetail = val.error;
+            parsedObj = val.parsed;
+            showToast(`Removed ${count} duplicate item${count === 1 ? '' : 's'}`);
+          }
+        } else if (actionType === 'flatten-nested-array') {
+          title = 'Flattened Array';
+          lang = 'json';
+          const { result, error: flatErr } = flattenNestedArray(inputText, preferences.indent);
+          resultText = result;
+          if (flatErr) {
+            validState = false;
+            errDetail = { message: flatErr };
+          } else {
+            const val = validateJson(resultText);
+            validState = val.valid;
+            errDetail = val.error;
+            parsedObj = val.parsed;
+          }
         } else if (actionType === 'to-yaml') {
           title = 'JSON to YAML';
           lang = 'text';
@@ -901,13 +939,108 @@ export default function App() {
   );
 
   // Copy output to clipboard
-  const handleCopyOutput = () => {
+  const handleCopyOutput = React.useCallback(() => {
     if (!outputText) return;
     navigator.clipboard.writeText(outputText);
     setIsCopied(true);
     showToast('Copied output to clipboard!');
     setTimeout(() => setIsCopied(false), 2000);
-  };
+  }, [outputText]);
+
+  // Swap output text back into input
+  const handleSwapOutputToInput = React.useCallback(() => {
+    if (!outputText.trim()) {
+      showToast('Output is empty — nothing to swap');
+      return;
+    }
+    setInputText(outputText);
+    let targetFmt: DataFormat = 'json';
+    if (outputLanguage === 'xml') targetFmt = 'xml';
+    else if (outputLanguage === 'csv') targetFmt = 'csv';
+
+    setInputFormat(targetFmt);
+    validateInputByFormat(outputText, targetFmt);
+    showToast('Swapped Output ➔ Input Editor');
+  }, [outputText, outputLanguage, validateInputByFormat]);
+
+  // Count search query matches in output
+  const searchMatchesCount = React.useMemo(() => {
+    if (!searchQuery.trim() || !outputText) return 0;
+    try {
+      const q = searchQuery.toLowerCase();
+      const str = outputText.toLowerCase();
+      let count = 0;
+      let pos = str.indexOf(q);
+      while (pos !== -1) {
+        count++;
+        pos = str.indexOf(q, pos + q.length);
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  }, [searchQuery, outputText]);
+
+  // Global Keyboard Shortcuts Listener
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+      const target = e.target as HTMLElement;
+      const isInputting = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      // Open Command Palette: Ctrl+K or Cmd+K or Ctrl+P or Cmd+P
+      if (isMod && (e.key === 'k' || e.key === 'K' || e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // Open Keyboard Shortcuts Modal: Ctrl+/ or Cmd+/
+      if (isMod && e.key === '/') {
+        e.preventDefault();
+        setIsShortcutsOpen((prev) => !prev);
+        return;
+      }
+
+      // Esc closes open modals
+      if (e.key === 'Escape') {
+        if (isCommandPaletteOpen) {
+          e.preventDefault();
+          setIsCommandPaletteOpen(false);
+          return;
+        }
+        if (isShortcutsOpen) {
+          e.preventDefault();
+          setIsShortcutsOpen(false);
+          return;
+        }
+      }
+
+      // Hotkeys
+      if (isMod && e.key === 'Enter') {
+        e.preventDefault();
+        handleFormat('format');
+        showToast('Shortcut: Format JSON (Ctrl+Enter)');
+      } else if (isMod && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        e.preventDefault();
+        handleFormat('minify');
+        showToast('Shortcut: Minify JSON (Ctrl+Shift+M)');
+      } else if (isMod && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        e.preventDefault();
+        handleFormat('repair');
+        showToast('Shortcut: Auto-Repair (Ctrl+Shift+R)');
+      } else if (isMod && e.shiftKey && (e.key === 'C' || e.key === 'c') && !isInputting) {
+        e.preventDefault();
+        handleCopyOutput();
+      } else if (isMod && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+        e.preventDefault();
+        handleSwapOutputToInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isShortcutsOpen, handleFormat, handleSwapOutputToInput, handleCopyOutput]);
 
   // Download output file
   const handleDownload = () => {
@@ -1110,6 +1243,8 @@ export default function App() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenChangelog={() => setIsChangelogOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         version="v2.6.0"
         onSelectSample={handleSelectSample}
         showInstallButton={showInstallButton}
@@ -1863,6 +1998,15 @@ export default function App() {
                 </button>
 
                 <button
+                  onClick={handleSwapOutputToInput}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors text-[11px] font-medium cursor-pointer"
+                  title="Swap output back into input editor (Ctrl+Shift+X)"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Swap</span>
+                </button>
+
+                <button
                   onClick={() => handleInputChange('')}
                   className="p-1 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
                   title="Clear input"
@@ -1933,6 +2077,64 @@ export default function App() {
                 className="w-full h-full p-3 font-mono text-xs sm:text-sm bg-transparent text-zinc-800 dark:text-zinc-200 resize-none focus:outline-none leading-relaxed selection:bg-indigo-500/20 whitespace-pre overflow-auto"
                 spellCheck={false}
               />
+
+              {/* Empty State Quick-Start Overlay */}
+              {!inputText.trim() && (
+                <div className="absolute inset-0 z-10 p-6 flex flex-col items-center justify-center text-center bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-2xs border-2 border-dashed border-zinc-200 dark:border-zinc-800 m-3 rounded-xl select-none transition-all">
+                  <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mb-3">
+                    <Sparkles className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Ready to Format, Validate & Convert
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mt-1 mb-4">
+                    Paste your JSON, XML, CSV, TOML, or .env data, drag & drop a file, or click a quick sample below.
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-md">
+                    <button
+                      onClick={() => handleSelectSample(SAMPLE_DATASETS[0])}
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      🚀 User Profiles
+                    </button>
+                    <button
+                      onClick={() => handleSelectSample(SAMPLE_DATASETS[1])}
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      🛒 E-Commerce
+                    </button>
+                    <button
+                      onClick={() => handleSelectSample(SAMPLE_DATASETS[3])}
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      🔧 Dirty JSON (Repair)
+                    </button>
+                    <button
+                      onClick={() => handleSelectSample(SAMPLE_DATASETS[13])}
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      🔑 JWT Token
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          if (text) {
+                            handleInputChange(text);
+                            showToast('Pasted from clipboard!');
+                          }
+                        } catch {
+                          showToast('Clipboard access denied');
+                        }
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      📋 Paste Clipboard
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1951,15 +2153,20 @@ export default function App() {
 
               {/* Filter search box in code output */}
               {outputViewMode === 'code' && (
-                <div className="relative max-w-[150px] sm:max-w-xs">
+                <div className="relative max-w-[170px] sm:max-w-xs flex items-center">
                   <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="text"
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2 py-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded text-[11px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    className="w-full pl-7 pr-14 py-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded text-[11px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
+                  {searchQuery.trim() && (
+                    <span className="absolute right-2 text-[10px] font-mono font-semibold px-1 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 pointer-events-none">
+                      {searchMatchesCount} match{searchMatchesCount === 1 ? '' : 'es'}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -2374,6 +2581,41 @@ export default function App() {
         isOpen={isLlmSpecOpen}
         onClose={() => setIsLlmSpecOpen(false)}
         jsonData={parsedData || inputText}
+      />
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+      />
+
+      {/* Spotlight Command Palette Modal */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onRunFormat={(action) => handleFormat(action as any)}
+        onRunCrossConversion={(from, to) => runCrossConversion(from as any, to as any)}
+        onOpenModal={(modalName) => {
+          if (modalName === 'sql') setIsSqlModalOpen(true);
+          else if (modalName === 'diff') setIsDiffModalOpen(true);
+          else if (modalName === 'transform') setIsTransformToolsOpen(true);
+          else if (modalName === 'code') setIsCodeGeneratorOpen(true);
+          else if (modalName === 'jq') setIsJqModalOpen(true);
+          else if (modalName === 'patch') setIsPatchModalOpen(true);
+          else if (modalName === 'api') setIsApiSpecOpen(true);
+          else if (modalName === 'jwt') setIsJwtModalOpen(true);
+          else if (modalName === 'graph') setIsObjectGraphOpen(true);
+          else if (modalName === 'profiler') setIsProfilerOpen(true);
+          else if (modalName === 'batch') setIsBatchModalOpen(true);
+          else if (modalName === 'url') setIsUrlFetcherOpen(true);
+          else if (modalName === 'charts') setIsChartsOpen(true);
+          else if (modalName === 'llm') setIsLlmSpecOpen(true);
+          else if (modalName === 'history') setIsHistoryOpen(true);
+          else if (modalName === 'settings') setIsSettingsOpen(true);
+          else if (modalName === 'shortcuts') setIsShortcutsOpen(true);
+        }}
+        onSelectSample={handleSelectSample}
+        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
       />
 
       {/* EU Compliant Privacy Banner */}

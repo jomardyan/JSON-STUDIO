@@ -2355,4 +2355,60 @@ export function diffJsonObjects(jsonAStr: string, jsonBStr: string): JsonDiffRes
   }
 }
 
+/**
+ * Removes duplicate items from a JSON array.
+ */
+export function deduplicateJsonArray(input: string, indent: string | number = 2): { result: string; count: number; error?: string } {
+  try {
+    const parsed = JSON.parse(input);
+    const space = indent === 'tab' ? '\t' : Number(indent) || 2;
+
+    if (!Array.isArray(parsed)) {
+      return { result: input, count: 0, error: 'Input must be a JSON array to deduplicate' };
+    }
+
+    const seen = new Set<string>();
+    const deduplicated: any[] = [];
+
+    for (const item of parsed) {
+      const key = typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item);
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(item);
+      }
+    }
+
+    const removedCount = parsed.length - deduplicated.length;
+    return {
+      result: JSON.stringify(deduplicated, null, space),
+      count: removedCount,
+    };
+  } catch (err: any) {
+    return { result: input, count: 0, error: err.message };
+  }
+}
+
+/**
+ * Flattens nested multi-dimensional arrays into a single-level array.
+ */
+export function flattenNestedArray(input: string, indent: string | number = 2): { result: string; error?: string } {
+  try {
+    const parsed = JSON.parse(input);
+    const space = indent === 'tab' ? '\t' : Number(indent) || 2;
+
+    if (!Array.isArray(parsed)) {
+      return { result: input, error: 'Input must be a JSON array to flatten' };
+    }
+
+    function flattenDeep(arr: any[]): any[] {
+      return arr.reduce((acc, val) => (Array.isArray(val) ? acc.concat(flattenDeep(val)) : acc.concat(val)), []);
+    }
+
+    const flat = flattenDeep(parsed);
+    return { result: JSON.stringify(flat, null, space) };
+  } catch (err: any) {
+    return { result: input, error: err.message };
+  }
+}
+
 

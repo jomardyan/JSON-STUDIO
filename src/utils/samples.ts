@@ -4,14 +4,19 @@ export interface SampleItem {
   description: string;
   format: string;
   content: string;
+  category?: 'Core JSON' | 'Conversions' | 'Dev Tools' | 'AI & Analytics';
 }
 
 export const SAMPLE_DATASETS: SampleItem[] = [
+  // -------------------------------------------------------------------
+  // 1. Core JSON & Visualization
+  // -------------------------------------------------------------------
   {
     id: 'users',
     name: 'User Profiles & Roles',
-    description: 'Nested array of user profiles with preferences and contact info',
+    description: 'Nested array of user profiles with preferences, skills, and spatial coordinates',
     format: 'json',
+    category: 'Core JSON',
     content: JSON.stringify(
       [
         {
@@ -76,8 +81,9 @@ export const SAMPLE_DATASETS: SampleItem[] = [
   {
     id: 'e-commerce',
     name: 'E-Commerce Order Catalog',
-    description: 'Order details with line items, pricing, and shipping status',
+    description: 'Complex order payload with line items, tax breakdown, and shipping details',
     format: 'json',
+    category: 'Core JSON',
     content: JSON.stringify(
       {
         orderId: 'ORD-98421',
@@ -127,8 +133,9 @@ export const SAMPLE_DATASETS: SampleItem[] = [
   {
     id: 'geojson',
     name: 'GeoJSON Map Features',
-    description: 'Geographic coordinate markers for global tech hubs',
+    description: 'Geographic coordinate markers for global tech innovation hubs',
     format: 'json',
+    category: 'Core JSON',
     content: JSON.stringify(
       {
         type: 'FeatureCollection',
@@ -181,13 +188,14 @@ export const SAMPLE_DATASETS: SampleItem[] = [
   {
     id: 'dirty-json',
     name: 'Broken / Dirty JSON (Repair Test)',
-    description: 'Contains unquoted keys, trailing commas, single quotes, and comments for testing auto-repair',
+    description: 'Contains unquoted keys, single quotes, Python keywords, trailing commas, and comments',
     format: 'json',
+    category: 'Core JSON',
     content: `// Sample dirty JSON for testing auto-repair
 {
   name: 'Alpha Project',
   version: 2.1,
-  enabled: True, // Python boolean
+  enabled: True, // Python boolean keyword
   features: [
     'OAuth2 Login',
     'Dark Theme',
@@ -198,13 +206,19 @@ export const SAMPLE_DATASETS: SampleItem[] = [
     retryOnFailure: False,
     'maxConnections': 100,
   },
+  owner: None,
 }`
   },
+
+  // -------------------------------------------------------------------
+  // 2. Data Conversions
+  // -------------------------------------------------------------------
   {
     id: 'sample-csv',
-    name: 'Employees Table (CSV)',
-    description: 'Comma separated values table of staff members',
+    name: 'Staff Payroll (CSV)',
+    description: 'Comma separated values table of staff members for CSV ➔ JSON conversion',
     format: 'csv',
+    category: 'Conversions',
     content: `EmployeeID,FirstName,LastName,Department,Salary,HireDate
 1001,John,Doe,Engineering,95000,2022-03-15
 1002,Jane,Smith,Marketing,82000,2021-06-01
@@ -214,8 +228,9 @@ export const SAMPLE_DATASETS: SampleItem[] = [
   {
     id: 'sample-xml',
     name: 'Book Catalog (XML)',
-    description: 'XML document containing book catalog records',
+    description: 'Structured XML document containing book catalog records',
     format: 'xml',
+    category: 'Conversions',
     content: `<?xml version="1.0" encoding="UTF-8"?>
 <catalog>
   <book id="bk101">
@@ -236,9 +251,10 @@ export const SAMPLE_DATASETS: SampleItem[] = [
   },
   {
     id: 'sample-toml',
-    name: 'Server Config (TOML)',
-    description: 'TOML configuration file for web application server',
+    name: 'Server Configuration (TOML)',
+    description: 'TOML file with tables, arrays, and scalar key-value pairs',
     format: 'toml',
+    category: 'Conversions',
     content: `# Web Server Configuration
 title = "Production Server"
 port = 8080
@@ -250,10 +266,45 @@ ports = [8001, 8002, 8003]
 connection_max = 5000`
   },
   {
+    id: 'sample-yaml',
+    name: 'Kubernetes Deployment (YAML)',
+    description: 'K8s manifest specification for microservice deployment',
+    format: 'yaml',
+    category: 'Conversions',
+    content: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+  labels:
+    app: api-service
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-service
+  template:
+    metadata:
+      labels:
+        app: api-service
+    spec:
+      containers:
+      - name: api-server
+        image: registry.example.com/api:v2.4.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DB_MAX_CONN
+          value: "50"`
+  },
+  {
     id: 'sample-properties',
     name: 'App Environment (.env)',
-    description: 'Key-value environment variables / Java properties',
+    description: 'Key-value environment variables and Java application properties',
     format: 'properties',
+    category: 'Conversions',
     content: `# Application Environment Configuration
 APP_NAME=JSON Studio Pro
 PORT=3000
@@ -264,15 +315,17 @@ DB_NAME=production_db`
   {
     id: 'sample-urlencoded',
     name: 'URL Query String (Form Encoded)',
-    description: 'URL-encoded form payload / query parameters',
+    description: 'URL query parameters and form-urlencoded HTTP bodies',
     format: 'urlencoded',
+    category: 'Conversions',
     content: `search=json+converter&page=1&limit=25&filters%5Bactive%5D=true&sort=date_desc`
   },
   {
     id: 'sample-markdown',
     name: 'Markdown Table',
-    description: 'Markdown formatted table for docs and GitHub READMEs',
+    description: 'GitHub-flavored Markdown table for documentation and READMEs',
     format: 'markdown',
+    category: 'Conversions',
     content: `| ID | Name | Role | Status |
 | --- | --- | --- | --- |
 | 1 | Alice Johnson | Lead Engineer | Active |
@@ -281,11 +334,180 @@ DB_NAME=production_db`
   },
   {
     id: 'sample-ndjson',
-    name: 'Log Stream (NDJSON)',
-    description: 'Newline Delimited JSON stream for big data & telemetry',
+    name: 'Log Telemetry Stream (NDJSON)',
+    description: 'Newline Delimited JSON stream for analytics and log inspection',
     format: 'ndjson',
+    category: 'Conversions',
     content: `{"timestamp":"2026-07-28T08:00:00Z","level":"info","event":"user_login","userId":101}
 {"timestamp":"2026-07-28T08:01:15Z","level":"warn","event":"rate_limit_warning","userId":101}
 {"timestamp":"2026-07-28T08:02:30Z","level":"error","event":"payment_failed","userId":205,"code":"INSUFFICIENT_FUNDS"}`
+  },
+
+  // -------------------------------------------------------------------
+  // 3. Developer Tools & Query Engines
+  // -------------------------------------------------------------------
+  {
+    id: 'sample-curl',
+    name: 'cURL API Request (cURL Studio)',
+    description: 'cURL command with bearer authorization headers and JSON payload for code generation',
+    format: 'text',
+    category: 'Dev Tools',
+    content: `curl -X POST "https://api.stripe.com/v1/payment_intents" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -H "Content-Type: application/json" \\
+  -d '{"amount": 2000, "currency": "usd", "payment_method_types": ["card"], "receipt_email": "customer@example.com"}'`
+  },
+  {
+    id: 'sample-jwt',
+    name: 'JWT Authentication Token',
+    description: 'Real JSON Web Token for testing JWT header, payload, claims, and expiry decoding',
+    format: 'text',
+    category: 'Dev Tools',
+    content: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE5MTYyMzkwMjJ9.4dYVp3_nFk7Vf5S56HjB6W6Y6Y6Y6Y6Y6Y6Y6Y6Y6Y6`
+  },
+  {
+    id: 'sample-sql',
+    name: 'SQL Table DDL & INSERTs',
+    description: 'CREATE TABLE statement and INSERT INTO rows for SQL Studio parsing',
+    format: 'sql',
+    category: 'Dev Tools',
+    content: `CREATE TABLE IF NOT EXISTS products (
+  product_id INT PRIMARY KEY,
+  title VARCHAR(255),
+  price DECIMAL(10, 2),
+  in_stock BOOLEAN
+);
+
+INSERT INTO products (product_id, title, price, in_stock) VALUES
+(101, 'Mechanical Keyboard', 129.99, TRUE),
+(102, 'Ergonomic Mouse', 59.50, TRUE),
+(103, 'UltraWide Monitor', 499.00, FALSE);`
+  },
+  {
+    id: 'sample-jq',
+    name: 'JQ Query Expression Dataset',
+    description: 'Array dataset for testing JQ queries like `.items[] | select(.price > 50)`',
+    format: 'json',
+    category: 'Dev Tools',
+    content: JSON.stringify(
+      {
+        store: 'Tech Central',
+        items: [
+          { name: 'Laptop Stand', price: 29.99, category: 'accessories', rating: 4.8 },
+          { name: 'Mechanical Keyboard', price: 149.00, category: 'peripherals', rating: 4.9 },
+          { name: 'USB Hub', price: 19.50, category: 'accessories', rating: 4.2 },
+          { name: '4K Webcam', price: 89.99, category: 'peripherals', rating: 4.6 }
+        ]
+      },
+      null,
+      2
+    )
+  },
+  {
+    id: 'sample-json-patch',
+    name: 'JSON Patch Pair (RFC 6902 / 7386)',
+    description: 'Document for testing visual JSON diffs and patch generation',
+    format: 'json',
+    category: 'Dev Tools',
+    content: JSON.stringify(
+      {
+        title: 'Project Phoenix',
+        version: 1.0,
+        tags: ['alpha', 'internal'],
+        author: { name: 'Alice', email: 'alice@company.com' },
+        settings: { debug: true, maxThreads: 4 }
+      },
+      null,
+      2
+    )
+  },
+
+  // -------------------------------------------------------------------
+  // 4. AI / LLM & Analytics Studios
+  // -------------------------------------------------------------------
+  {
+    id: 'sample-charts',
+    name: 'Visual Analytics & Charts',
+    description: 'Monthly business revenue, expenses, and active users dataset for Chart Studio',
+    format: 'json',
+    category: 'AI & Analytics',
+    content: JSON.stringify(
+      [
+        { month: 'Jan', revenue: 45000, expenses: 32000, activeUsers: 1200 },
+        { month: 'Feb', revenue: 52000, expenses: 34000, activeUsers: 1450 },
+        { month: 'Mar', revenue: 61000, expenses: 38000, activeUsers: 1800 },
+        { month: 'Apr', revenue: 58000, expenses: 36000, activeUsers: 1750 },
+        { month: 'May', revenue: 73000, expenses: 41000, activeUsers: 2200 },
+        { month: 'Jun', revenue: 84000, expenses: 45000, activeUsers: 2700 }
+      ],
+      null,
+      2
+    )
+  },
+  {
+    id: 'sample-llm-tool',
+    name: 'AI Tool & Function Spec Source',
+    description: 'Sample function parameters for generating OpenAI/Gemini/Zod tool declarations',
+    format: 'json',
+    category: 'AI & Analytics',
+    content: JSON.stringify(
+      {
+        location: 'San Francisco, CA',
+        unit: 'celsius',
+        includeForecast: true,
+        days: 5,
+        metrics: ['temperature', 'humidity', 'wind_speed', 'uv_index']
+      },
+      null,
+      2
+    )
+  },
+  {
+    id: 'sample-pii-profiler',
+    name: 'PII Redaction & Security Payload',
+    description: 'Contains sensitive user data (SSN, credit card, passwords) for testing PII masking & profiler',
+    format: 'json',
+    category: 'AI & Analytics',
+    content: JSON.stringify(
+      {
+        user_id: 88412,
+        username: 'johndoe',
+        email: 'john.doe@securenet.org',
+        password_hash: '$2b$12$eW5z0xH.e5x7...',
+        api_key: 'api_key_sample_demo_12345',
+        ssn: '000-12-3456',
+        credit_card: '4532-1100-8821-4432',
+        billing: {
+          cvv: '921',
+          zip: '90210',
+          amount: 149.99
+        }
+      },
+      null,
+      2
+    )
+  },
+  {
+    id: 'sample-openapi',
+    name: 'REST API Payload (OpenAPI Spec Source)',
+    description: 'Complete API payload for generating OpenAPI 3.0 / Swagger schema specifications',
+    format: 'json',
+    category: 'AI & Analytics',
+    content: JSON.stringify(
+      {
+        status: 'success',
+        code: 200,
+        data: {
+          articleId: 'art_4091',
+          title: 'Architecting Scalable Microservices with React and TypeScript',
+          views: 14200,
+          likes: 852,
+          publishedAt: '2026-07-28T12:00:00Z',
+          tags: ['architecture', 'typescript', 'web-dev']
+        }
+      },
+      null,
+      2
+    )
   }
 ];
