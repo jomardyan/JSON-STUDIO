@@ -6,6 +6,7 @@ import {
   generateJsonSchema,
   deduplicateJsonArray,
   flattenNestedArray,
+  detectFormat,
 } from '../jsonUtils';
 
 describe('JSON Utilities & Auto-Repair Engine', () => {
@@ -64,5 +65,12 @@ describe('JSON Utilities & Auto-Repair Engine', () => {
     const { result } = flattenNestedArray(nested);
 
     expect(JSON.parse(result)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('detects explicit JSON5, dotenv, HCL, and properties syntax', () => {
+    expect(detectFormat('{user: "Ada", // comment\n active: true,}')).toBe('json5');
+    expect(detectFormat('export API_KEY=secret\nPORT=3000')).toBe('env');
+    expect(detectFormat('resource "server" "api" {\n  enabled = true\n}')).toBe('hcl');
+    expect(detectFormat('app.name=JSON Studio\napp.port=3000')).toBe('properties');
   });
 });

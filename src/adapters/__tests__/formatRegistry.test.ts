@@ -134,6 +134,22 @@ describe('Format Adapter Registry', () => {
     expect(unflattened.outputText).not.toContain('profile.role');
   });
 
+  it('does not discard sibling fields when a JSON record contains an array', () => {
+    const result = convertFormat(
+      JSON.stringify({
+        user_id: 42,
+        name: 'Alice',
+        scores: [95, 88, 100],
+      }),
+      'json',
+      'csv'
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.outputText).toContain('user_id,name,scores');
+    expect(result.outputText).toContain('42,Alice,95; 88; 100');
+  });
+
   it('derives matrix status from adapter direction and capabilities', () => {
     expect(getConversionCompatibility('typescript', 'json').status).toBe('none');
     expect(getConversionCompatibility('json', 'env').status).toBe('lossy');

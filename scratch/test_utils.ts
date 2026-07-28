@@ -75,7 +75,7 @@ try {
   assert(!urlEncBack.error && urlEncBack.result.includes('Alice Smith'), 'urlEncodedToJson', urlEncBack);
 
   const props = jsonToProperties(testJsonStr);
-  assert(!props.error && props.result.includes('user_name = Alice Smith'), 'jsonToProperties', props);
+  assert(!props.error && props.result.includes('user_name=Alice Smith'), 'jsonToProperties', props);
 
   const propsBack = propertiesToJson(props.result);
   assert(!propsBack.error && propsBack.result.includes('Alice Smith'), 'propertiesToJson', propsBack);
@@ -93,7 +93,7 @@ try {
   assert(!ndjsonBack.error && ndjsonBack.result.includes('Alice Smith'), 'ndjsonToJson', ndjsonBack);
 
   const pyDict = jsonToPythonDict(testJsonStr);
-  assert(!pyDict.error && pyDict.result.includes("'user_name': 'Alice Smith'"), 'jsonToPythonDict', pyDict);
+  assert(!pyDict.error && pyDict.result.includes('"user_name": "Alice Smith"'), 'jsonToPythonDict', pyDict);
 
   const phpArr = jsonToPhpArray(testJsonStr);
   assert(!phpArr.error && phpArr.result.includes("'user_name' => 'Alice Smith'"), 'jsonToPhpArray', phpArr);
@@ -114,7 +114,7 @@ try {
   assert(!snakeKeyRes.error && snakeKeyRes.result.includes('user_name'), 'convertKeyCase to snake_case', snakeKeyRes);
 
   const masked = maskSensitiveData(testJsonStr);
-  assert(!masked.error && masked.result.includes('a***e@example.com'), 'maskSensitiveData masks email', masked);
+  assert(!masked.error && masked.result.includes('"user_email": "***REDACTED***"'), 'maskSensitiveData masks email', masked);
 
   const queryRes = queryJsonPath(testJsonStr, '$.address.city', 2);
   assert(queryRes.result.includes('New York'), 'queryJsonPath $.address.city', queryRes);

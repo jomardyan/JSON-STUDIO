@@ -43,10 +43,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((networkResponse) => {
+        .then(async (networkResponse) => {
           if (networkResponse.ok) {
             const responseToCache = networkResponse.clone();
-            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', responseToCache)));
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put('/index.html', responseToCache);
           }
           return networkResponse;
         })
@@ -66,24 +67,23 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         // Fetch background update for cache freshness
-        fetch(event.request).then((networkResponse) => {
+        void fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+            return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
           }
         }).catch(() => {});
 
         return cachedResponse;
       }
 
-      return fetch(event.request).then((networkResponse) => {
+      return fetch(event.request).then(async (networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
         }
 
         const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, responseToCache);
 
         return networkResponse;
       }).catch(async () => {

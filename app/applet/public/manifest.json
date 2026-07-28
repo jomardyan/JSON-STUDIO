@@ -1,17 +1,43 @@
 {
   "name": "JSON Studio Pro",
   "short_name": "JSON Studio",
-  "description": "Universal Multi-Format Data Converter",
+  "description": "Universal Multi-Format Data Converter & Developer Studio — 100% Offline Client-Side App",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4f46e5",
+  "background_color": "#18181b",
+  "theme_color": "#18181b",
+  "orientation": "any",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "/icon.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "developer",
+    "utilities",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Format JSON",
+      "short_name": "Format",
+      "description": "Format and beautify JSON code",
+      "url": "/?action=format"
+    },
+    {
+      "name": "JSON to CSV",
+      "short_name": "CSV",
+      "description": "Convert JSON to CSV spreadsheet",
+      "url": "/?action=csv"
+    },
+    {
+      "name": "SQL Studio",
+      "short_name": "SQL",
+      "description": "Open SQL Studio & DDL Generator",
+      "url": "/?action=sql"
     }
   ]
 }

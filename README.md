@@ -61,7 +61,7 @@ Fixes invalid JSON syntax automatically:
 - Python booleans & nulls (`True`, `False`, `None`)
 
 ### 📡 5. 100% Offline Mode (PWA Service Worker)
-- **Zero Internet Connection Required:** Service Worker pre-caches all code bundles, styles, and assets.
+- **Zero Internet Connection Required after first load:** The service worker caches the application shell and runtime assets for later offline sessions.
 - **Standalone PWA Installation:** Install as a native desktop or mobile app.
 - **Network Status Detector:** Real-time online/offline indicator badge.
 
@@ -148,13 +148,13 @@ JSON-STUDIO/
 │   ├── components/          # React Modals, Toolbar & Studio Components
 │   │   ├── CommandPaletteModal.tsx  # Spotlight Command Palette
 │   │   ├── Header.tsx               # Sticky Navbar & Tools Menu
-│   │   ├── SqlStudioModal.tsx       # SQL Studio & DDL Generator
+│   │   ├── SqlConverterModal.tsx    # SQL Studio & DDL Generator
 │   │   ├── JsonDiffModal.tsx        # Side-by-Side Visual Diff
 │   │   ├── JsonChartsModal.tsx      # Visual Analytics & Charts Studio
 │   │   └── ...                      # 15+ Modal Studio Components
 │   ├── utils/               # Core Parsing & Conversion Engines
 │   │   ├── jsonUtils.ts             # Formatters, Minifiers & Auto-Repair Engine
-│   │   ├── crossConverters.ts       # CSV, XML, YAML, TOML & SQL Converters
+│   │   ├── formatRegistry.ts        # Shared 18-format adapter registry
 │   │   ├── samples.ts               # 21 Built-in Sample Datasets
 │   │   └── i18n.ts                  # Multi-language translation engine
 │   ├── App.tsx              # Main Workspace Component

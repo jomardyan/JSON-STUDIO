@@ -17,7 +17,22 @@ export function detectFormat(input: string): DataFormat {
     }
   } catch {}
 
-  // 2. NDJSON check (multiple lines, each is valid JSON)
+  // 2. JSON5 / JSONC check. Only classify syntax with an explicit non-JSON
+  // marker so arbitrary invalid JSON is not silently presented as JSON5.
+  if (
+    /^[\[{]/.test(trimmed) &&
+    (/\/[/*]/.test(trimmed) || /([{,]\s*)[A-Za-z_$][\w$-]*\s*:/.test(trimmed) || /,\s*[}\]]/.test(trimmed))
+  ) {
+    const repaired = repairJson(trimmed);
+    try {
+      JSON.parse(repaired.repaired);
+      return 'json5';
+    } catch {
+      // Continue checking other formats.
+    }
+  }
+
+  // 3. NDJSON check (multiple lines, each is valid JSON)
   const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length > 1) {
     let allJson = true;
@@ -36,27 +51,27 @@ export function detectFormat(input: string): DataFormat {
     if (allJson) return 'ndjson';
   }
 
-  // 3. XML check
+  // 4. XML check
   if ((trimmed.startsWith('<') && trimmed.endsWith('>')) || /^<\?xml/i.test(trimmed)) {
     return 'xml';
   }
 
-  // 4. Markdown table check
+  // 5. Markdown table check
   if (lines.length >= 2 && lines.every((l) => l.startsWith('|') && l.endsWith('|'))) {
     return 'markdown';
   }
 
-  // 5. SQL check
+  // 6. SQL check
   if (/^(INSERT\s+INTO|SELECT\s+|CREATE\s+TABLE|UPDATE\s+|DELETE\s+FROM)/i.test(trimmed)) {
     return 'sql';
   }
 
-  // 6. URL Query String check
+  // 7. URL Query String check
   if ((trimmed.includes('=') && trimmed.includes('&')) || /^https?:\/\//i.test(trimmed) || /^\?[a-zA-Z0-9_.]+=/i.test(trimmed)) {
     return 'urlencoded';
   }
 
-  // 7. CSV check (multiple lines with matching column count) — before TOML/YAML to avoid false positives
+  // 8. CSV check (multiple lines with matching column count) — before TOML/YAML to avoid false positives
   if (lines.length > 1) {
     const firstDelim = [',', '\t', ';', '|'].find((d) => lines[0].includes(d));
     if (firstDelim) {
@@ -67,17 +82,36 @@ export function detectFormat(input: string): DataFormat {
     }
   }
 
-  // 8. TOML check
+  // 9. Dotenv check
+  if (/^(?:export\s+)?[A-Z_][A-Z0-9_]*\s*=/m.test(trimmed)) {
+    return 'env';
+  }
+
+  // 10. HCL / Terraform check
+  if (
+    /^(?:resource|data|module|provider|variable|output)\s+"[^"]+"/m.test(trimmed) ||
+    /^(?:locals|terraform)\s*\{/m.test(trimmed)
+  ) {
+    return 'hcl';
+  }
+
+  // 11. Java properties check. Dotted keys with unquoted text values are a
+  // stronger properties signal than TOML, whose bare strings are invalid.
+  if (/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+\s*[=:]\s*[^\s"'[\]{][^\r\n]*$/m.test(trimmed)) {
+    return 'properties';
+  }
+
+  // 12. TOML check
   if (/^\[[a-zA-Z0-9_.-]+\]/m.test(trimmed) || /^[a-zA-Z0-9_.-]+\s*=\s*(?:"[^"]*"|'[^']*'|\d+|true|false|\[)/m.test(trimmed)) {
     return 'toml';
   }
 
-  // 9. YAML check
+  // 13. YAML check
   if (/^[a-zA-Z0-9_.-]+\s*:\s*.+/m.test(trimmed)) {
     return 'yaml';
   }
 
-  // 10. Properties / .env check
+  // 14. Properties check
   if (/^[a-zA-Z0-9_.-]+\s*=\s*.+/m.test(trimmed)) {
     return 'properties';
   }
@@ -246,10 +280,14 @@ export function jsonToCsv(jsonObj: any, options?: CsvOptions): string {
   if (Array.isArray(jsonObj)) {
     records = jsonObj;
   } else if (typeof jsonObj === 'object') {
-    // Check if object contains an array inside
-    const arrayKey = Object.keys(jsonObj).find((k) => Array.isArray(jsonObj[k]));
-    if (arrayKey) {
-      records = jsonObj[arrayKey];
+    // Unwrap a single array property such as {"records": [...]}, but do not
+    // discard sibling fields from ordinary records that happen to contain arrays.
+    const objectKeys = Object.keys(jsonObj);
+    const soleArrayKey = objectKeys.length === 1 && Array.isArray(jsonObj[objectKeys[0]])
+      ? objectKeys[0]
+      : null;
+    if (soleArrayKey) {
+      records = jsonObj[soleArrayKey];
     } else {
       records = [jsonObj];
     }
