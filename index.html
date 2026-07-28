@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Studio Pro v2.6 - Universal JSON Formatter, Repair & Converter Studio</title>
+    
+    <!-- Primary SEO Metadata -->
+    <meta name="title" content="JSON Studio Pro v2.6 - Universal JSON Formatter, Repair & Converter Studio" />
+    <meta name="description" content="Free, 100% private client-side JSON Studio. Instant conversion & formatting for JSON, XML, CSV, YAML, TOML, SQL Studio, Side-by-Side Diff, jq Playground, JWT Inspector, RFC 6902 Patch, and Multi-Lang Code Models without uploading data." />
+    <meta name="keywords" content="json studio, json converter, json formatter, json repair, json diff, jq playground, jwt decoder, json to sql, json to csv, json to yaml, json to toml, json to typescript, openapi generator, json patch, json.lolisoft.eu" />
+    <meta name="author" content="lolisoft" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://json.lolisoft.eu" />
+    <meta name="theme-color" content="#18181b" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://json.lolisoft.eu/" />
+    <meta property="og:title" content="JSON Studio Pro - Universal Developer Data & Format Toolkit" />
+    <meta property="og:description" content="100% private client-side JSON Formatter, Auto-Repair, SQL Studio, Side-by-Side Diff, jq Playground, and Multi-Format Converters." />
+    <meta property="og:site_name" content="JSON Studio" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://json.lolisoft.eu/" />
+    <meta property="twitter:title" content="JSON Studio Pro - Universal Developer Data & Format Toolkit" />
+    <meta property="twitter:description" content="100% private client-side JSON Formatter, Auto-Repair, SQL Studio, Side-by-Side Diff, jq Playground, and Multi-Format Converters." />
+
+    <!-- PWA Setup -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('SW registration failed: ', err);
+          });
+        });
+      }
+    </script>
+    
+    <!-- Sitemap and AI Manifest links -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+    <link rel="author" type="text/plain" href="/llms.txt" />
+
+    <!-- Structured Data (JSON-LD) for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "@id": "https://json.lolisoft.eu/#webapp",
+          "name": "JSON Studio Pro",
+          "url": "https://json.lolisoft.eu",
+          "description": "Comprehensive client-side JSON formatter, validator, repair tool, SQL studio, side-by-side diff, and multi-format converter for developers.",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "All",
+          "softwareVersion": "2.6.0",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "featureList": [
+            "JSON Formatting & Minification",
+            "JSON Auto-Repair & Syntax Validation",
+            "SQL Studio (DDL & Batch INSERT Statements)",
+            "JSON Side-by-Side Diff & Comparator",
+            "jq Syntax Query Playground",
+            "PII Masking & JSONPath Evaluator",
+            "RFC 6902 Patch & RFC 7386 Merge Patch",
+            "Multi-Lang Code Generator (TypeScript, Go, Rust, Python, C#, Swift)",
+            "OpenAPI 3.0 / cURL / GraphQL Spec Generator",
+            "JWT Inspector & Claims Decoder",
+            "Interactive ER Diagram & Object Graph",
+            "Payload Profiler & Structural Stats",
+            "JSON to XML / CSV / YAML / TOML / Markdown / NDJSON"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://json.lolisoft.eu/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Is my data uploaded to any server when converting JSON?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. JSON Studio Pro is 100% client-side. All processing, formatting, and conversion happens entirely within your web browser."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What developer tools and formats are supported?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "JSON Studio Pro supports JSON, XML, CSV, TSV, YAML, TOML, SQL DDL/INSERT, Markdown, HTML, TypeScript, Python, PHP, NDJSON, jq queries, JSON Diff, JSON Patch, OpenAPI specs, and JWT decoding."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does the JSON Auto-Repair feature work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The auto-repair engine parses malformed JSON and automatically corrects unquoted keys, single quotes, trailing commas, comments, and non-standard boolean values."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+  </head>
+  <body class="bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 antialiased selection:bg-indigo-500/30">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

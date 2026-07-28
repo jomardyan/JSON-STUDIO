@@ -1,0 +1,6 @@
+{
+  "name": "JSON Studio Pro & Universal File Converter",
+  "description": "Fast, private client-side converter and formatter for JSON, XML, CSV, YAML, TOML, SQL, Markdown, TypeScript, .env, NDJSON, Python Dict, PHP Array, and URL Query strings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

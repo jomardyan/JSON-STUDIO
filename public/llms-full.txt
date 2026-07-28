@@ -1,0 +1,47 @@
+# JSON Studio Pro v2.6.0 - Full Documentation for AI Agents & Crawlers
+
+JSON Studio Pro (https://json.lolisoft.eu) is a professional developer application designed for fast, local, and private data transformation.
+
+## Features Overview
+
+1. **Auto-Repair Syntax Engine**:
+   - Automatically repairs broken JSON strings.
+   - Wraps unquoted keys in double quotes (`{name: "val"}` -> `{"name": "val"}`).
+   - Replaces single quotes with standard JSON double quotes (`'hello'` -> `"hello"`).
+   - Strips trailing commas in objects and arrays (`[1, 2, 3,]` -> `[1, 2, 3]`).
+   - Removes C-style inline and block comments (`// comment` and `/* comment */`).
+   - Normalizes Python literals (`True` -> `true`, `False` -> `false`, `None` -> `null`).
+
+2. **Developer Studios Suite**:
+   - **SQL Studio**: SQL Dialect DDL schema generator (PostgreSQL, MySQL, SQLite, Oracle, BigQuery) & batch INSERT converter.
+   - **JSON Side-by-Side Diff**: Compare two JSON inputs with side-by-side highlighting and delta inspection.
+   - **Case / Mask / Query**: CamelCase/snake_case/kebab-case converter, PII data masking (emails, credit cards, phones), and JSONPath query evaluator.
+   - **Multi-Lang Code Models**: Instant generation of typed code models for TypeScript, Python Pydantic, Go, Rust, C#, Swift, and Dart.
+   - **jq Query Playground**: UNIX jq syntax filter playground.
+   - **RFC 6902 Patch / RFC 7386 Merge Patch**: Generate patch diffs or apply JSON patch objects.
+   - **API Specs**: Convert JSON payloads to OpenAPI 3.0 YAML, cURL commands, or GraphQL schemas.
+   - **JWT Inspector**: Decode JWT headers & payloads, verify claims, and check expiration.
+   - **Interactive ER & Object Graph**: Interactive entity relationship node graph for complex nested objects.
+   - **Payload Profiler**: Depth metrics, object key counts, array length distributions, and byte size breakdown.
+
+3. **Cross-Format Conversion**:
+   - JSON <-> XML
+   - JSON <-> CSV / TSV / Custom Delimiters
+   - JSON <-> YAML
+   - JSON <-> TOML
+   - JSON <-> SQL INSERT statements
+   - JSON <-> Markdown Tables
+   - JSON <-> HTML Tables
+   - JSON -> TypeScript Interfaces
+   - JSON -> Python Dict
+   - JSON -> PHP Array
+   - JSON <-> NDJSON (JSON Lines)
+   - JSON <-> URL Query Strings
+   - JSON <-> .env / Java Properties
+
+4. **Auto-Deduct Format Detection**:
+   - Automatically detects input language / data format (JSON, XML, CSV, YAML, TOML, SQL, Markdown, NDJSON, URL Query, Properties) upon typing or pasting.
+
+5. **Security & Privacy**:
+   - Operates strictly in client-side WebAssembly / JavaScript runtime.
+   - PWA support with service worker offline caching.
