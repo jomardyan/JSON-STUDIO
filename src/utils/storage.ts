@@ -42,12 +42,19 @@ export function getHistory(): HistoryItem[] {
 }
 
 export function saveHistoryItem(item: Omit<HistoryItem, 'id' | 'timestamp'>): HistoryItem {
-  const history = getHistory();
+  const prefs = getUserPreferences();
   const newItem: HistoryItem = {
     ...item,
     id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     timestamp: Date.now(),
   };
+
+  // If Private Session Mode is enabled, do NOT write payload to localStorage
+  if (prefs.privateSessionMode) {
+    return newItem;
+  }
+
+  const history = getHistory();
 
   // Avoid duplicate adjacent identical entries
   if (history.length > 0 && history[0].inputText === newItem.inputText && history[0].outputFormat === newItem.outputFormat) {

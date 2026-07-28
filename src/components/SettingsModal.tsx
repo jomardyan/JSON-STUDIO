@@ -306,6 +306,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
 
+          {/* Private Session Mode Toggle */}
+          <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div>
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block flex items-center gap-1">
+                🔒 Private Session Mode
+              </span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Disable payload storage in browser LocalStorage & mask API keys
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={prefs.privateSessionMode || false}
+              onChange={(e) =>
+                setPrefs({
+                  ...prefs,
+                  privateSessionMode: e.target.checked,
+                })
+              }
+              className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+            />
+          </div>
+
           {/* Offline Mode & PWA Cache Status */}
           <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/60 space-y-1.5 mt-3">
             <div className="flex items-center justify-between">

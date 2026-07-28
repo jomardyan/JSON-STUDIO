@@ -87,6 +87,7 @@ export interface UserPreferences {
   autoSortKeysOnFormat: boolean;
   autoRepairOnPaste: boolean;
   language?: 'en' | 'pl' | 'de' | 'es' | 'fr';
+  privateSessionMode?: boolean;
 }
 
 export type Theme = 'light' | 'dark' | 'system';

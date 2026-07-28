@@ -937,9 +937,42 @@ export function generateJsonSchema(input: string, indent: string | number = 2): 
         if (val.length === 0) {
           return { type: 'array', items: {} };
         }
+        
+        // Merge schemas across ALL array items
+        const itemSchemas = val.map((item) => buildSchema(item));
+        if (itemSchemas.length === 1) {
+          return { type: 'array', items: itemSchemas[0] };
+        }
+
+        // If items are objects, merge all properties
+        const isAllObjects = val.every((i) => typeof i === 'object' && i !== null && !Array.isArray(i));
+        if (isAllObjects) {
+          const allKeys = Array.from(new Set(val.flatMap((i) => Object.keys(i))));
+          const properties: Record<string, any> = {};
+          const required: string[] = [];
+
+          for (const k of allKeys) {
+            const presentInAll = val.every((i) => k in i);
+            const firstPresentValue = val.find((i) => k in i)?.[k];
+            properties[k] = buildSchema(firstPresentValue);
+            if (presentInAll) {
+              required.push(k);
+            }
+          }
+
+          return {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties,
+              required,
+            },
+          };
+        }
+
         return {
           type: 'array',
-          items: buildSchema(val[0]),
+          items: itemSchemas[0],
         };
       }
 

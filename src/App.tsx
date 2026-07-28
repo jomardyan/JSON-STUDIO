@@ -131,6 +131,7 @@ import { LlmToolGeneratorModal } from './components/LlmToolGeneratorModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { deduplicateJsonArray, flattenNestedArray } from './utils/jsonUtils';
+import { getFileExtensionForFormat } from './adapters/formatRegistry';
 
 export default function App() {
   // Theme state
@@ -1072,45 +1073,20 @@ export default function App() {
     if (!outputText) return;
 
     let extension = 'json';
-    let mime = 'application/json';
+    const ext = getFileExtensionForFormat(activeActionTitle || outputLanguage);
+    const filename = `converted_data_${Date.now()}${ext}`;
 
-    if (outputLanguage === 'xml') {
-      extension = 'xml';
-      mime = 'application/xml';
-    } else if (outputLanguage === 'csv') {
-      extension = 'csv';
-      mime = 'text/csv';
-    } else if (activeActionTitle.includes('SQL')) {
-      extension = 'sql';
-      mime = 'application/sql';
-    } else if (activeActionTitle.includes('HTML')) {
-      extension = 'html';
-      mime = 'text/html';
-    } else if (activeActionTitle.includes('YAML')) {
-      extension = 'yaml';
-      mime = 'text/yaml';
-    } else if (activeActionTitle.includes('TOML')) {
-      extension = 'toml';
-      mime = 'text/plain';
-    } else if (activeActionTitle.includes('TypeScript')) {
-      extension = 'ts';
-      mime = 'text/typescript';
-    } else if (activeActionTitle.includes('properties')) {
-      extension = 'properties';
-      mime = 'text/plain';
-    }
-
-    const blob = new Blob([outputText], { type: `${mime};charset=utf-8;` });
+    const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `converted_data_${Date.now()}.${extension}`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    showToast(`Downloaded converted_${Date.now()}.${extension}`);
+    showToast(`Downloaded ${filename}`);
   };
 
   // File upload handler
