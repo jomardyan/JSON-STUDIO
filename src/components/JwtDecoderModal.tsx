@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, KeyRound, Copy, Check, ShieldCheck, ShieldAlert, Clock, Calendar, ArrowRight } from 'lucide-react';
 import { SupportedLanguage, getTranslation } from '../utils/i18n';
-import { decodeJwt, JwtDecodeResult } from '../utils/jwtDecoder';
+import { decodeJwt, JwtDecodeResult, verifyJwtSignature } from '../utils/jwtDecoder';
 
 interface JwtDecoderModalProps {
   isOpen: boolean;
@@ -26,6 +26,14 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
 
   const [decoded, setDecoded] = React.useState<JwtDecodeResult | null>(null);
   const [copied, setCopied] = React.useState<boolean>(false);
+  const [secretInput, setSecretInput] = React.useState<string>('your-256-bit-secret');
+  const [sigStatus, setSigStatus] = React.useState<'unverified' | 'verified' | 'invalid'>('unverified');
+
+  const handleVerifySignature = async () => {
+    if (!secretInput.trim() || !jwtInput) return;
+    const { verified } = await verifyJwtSignature(jwtInput, secretInput.trim());
+    setSigStatus(verified ? 'verified' : 'invalid');
+  };
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -212,10 +220,42 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
                 </div>
               </div>
 
-              {/* Signature display */}
-              <div className="p-3 rounded-lg bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono text-[11px] break-all">
-                <span className="text-rose-400 font-bold mr-2">Signature:</span>
-                {decoded?.signature}
+              {/* Signature display & verification */}
+              <div className="p-3 rounded-lg bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono text-[11px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="break-all">
+                    <span className="text-rose-400 font-bold mr-2">Signature:</span>
+                    {decoded?.signature}
+                  </div>
+                  {sigStatus === 'verified' && (
+                    <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      Verified
+                    </span>
+                  )}
+                  {sigStatus === 'invalid' && (
+                    <span className="shrink-0 px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" />
+                      Invalid Key
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
+                  <input
+                    type="password"
+                    placeholder="Enter HMAC Secret / Public Key to verify signature..."
+                    value={secretInput}
+                    onChange={(e) => setSecretInput(e.target.value)}
+                    className="flex-1 bg-zinc-950 text-zinc-200 border border-zinc-700 rounded px-2.5 py-1 text-xs outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={handleVerifySignature}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded text-xs transition-colors cursor-pointer"
+                  >
+                    Verify Signature
+                  </button>
+                </div>
               </div>
             </>
           )}
