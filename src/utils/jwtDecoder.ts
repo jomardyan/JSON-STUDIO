@@ -108,3 +108,44 @@ function base64UrlDecode(str: string): string {
       .join('')
   );
 }
+
+export async function verifyJwtSignature(token: string, secret: string): Promise<{ verified: boolean; error?: string }> {
+  try {
+    const parts = token.trim().split('.');
+    if (parts.length !== 3) {
+      return { verified: false, error: 'Invalid JWT token format' };
+    }
+
+    if (!secret) {
+      return { verified: false, error: 'Secret or public key is required' };
+    }
+
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(`${parts[0]}.${parts[1]}`);
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // Convert signature from Base64Url
+    let sigBase64 = parts[2].replace(/-/g, '+').replace(/_/g, '/');
+    while (sigBase64.length % 4) {
+      sigBase64 += '=';
+    }
+    const sigBinary = atob(sigBase64);
+    const sigBytes = new Uint8Array(sigBinary.length);
+    for (let i = 0; i < sigBinary.length; i++) {
+      sigBytes[i] = sigBinary.charCodeAt(i);
+    }
+
+    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, messageData);
+    return { verified: isValid };
+  } catch (err: any) {
+    return { verified: false, error: err.message || 'Signature verification failed' };
+  }
+}
