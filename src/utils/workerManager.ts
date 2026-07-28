@@ -31,16 +31,42 @@ function getWorker(): Worker | null {
   return workerInstance;
 }
 
-export function runWorkerTask(request: Omit<WorkerMessageRequest, 'id'>): Promise<WorkerMessageResponse> {
+export function cancelWorkerTask(id: string): void {
+  if (pendingCallbacks.has(id)) {
+    pendingCallbacks.delete(id);
+  }
+}
+
+export function runWorkerTask(
+  request: Omit<WorkerMessageRequest, 'id'>,
+  timeoutMs: number = 15000
+): Promise<WorkerMessageResponse> {
   return new Promise((resolve) => {
     const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const worker = getWorker();
 
+    let timer: any = null;
+
     if (worker) {
-      pendingCallbacks.set(id, resolve);
+      timer = setTimeout(() => {
+        if (pendingCallbacks.has(id)) {
+          pendingCallbacks.delete(id);
+          resolve({
+            id,
+            success: false,
+            error: `Processing timed out after ${timeoutMs / 1000}s`,
+          });
+        }
+      }, timeoutMs);
+
+      pendingCallbacks.set(id, (response) => {
+        if (timer) clearTimeout(timer);
+        resolve(response);
+      });
+
       worker.postMessage({ ...request, id });
     } else {
-      // Fallback: synchronous execution
+      // Synchronous main-thread fallback
       resolve({
         id,
         success: false,
