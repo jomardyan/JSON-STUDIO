@@ -1,140 +1,194 @@
 import React from 'react';
-import { X, Upload, FileText, Check, Download, Layers, Play, RefreshCw, FolderArchive, FileCode } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  Download,
+  FileText,
+  FolderArchive,
+  Play,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import JSZip from 'jszip';
-import { SupportedLanguage, getTranslation } from '../utils/i18n';
-import { jsonToCsv } from '../utils/jsonUtils';
-import { generateCodeModel } from '../utils/codeGenerators';
+import {
+  detectFormatFromFilename,
+  getFileExtensionForFormat,
+  listFormatAdapters,
+} from '../adapters/formatRegistry';
+import { runWorkerTask } from '../utils/workerManager';
 
 interface BatchFileItem {
   id: string;
   filename: string;
   originalSize: number;
   originalContent: string;
+  sourceFormat: string;
   convertedContent?: string;
   convertedFilename?: string;
-  status: 'pending' | 'converted' | 'error';
+  status: 'pending' | 'processing' | 'converted' | 'error' | 'cancelled';
   errorMessage?: string;
+  warnings?: string[];
 }
 
 interface BatchProcessingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplySingleToEditor: (content: string) => void;
-  language?: SupportedLanguage;
+  language?: string;
+}
+
+const MAX_FILES = 50;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const WRITABLE_FORMATS = listFormatAdapters().filter((adapter) => adapter.writeSupport !== 'none');
+const ACCEPTED_EXTENSIONS = Array.from(
+  new Set(listFormatAdapters().flatMap((adapter) => adapter.extensions))
+).join(',');
+
+function replaceExtension(filename: string, extension: string): string {
+  const slashIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+  const dotIndex = filename.lastIndexOf('.');
+  const base = dotIndex > slashIndex ? filename.slice(0, dotIndex) : filename;
+  return `${base}${extension}`;
 }
 
 export const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
   isOpen,
   onClose,
   onApplySingleToEditor,
-  language = 'en',
 }) => {
-  const t = getTranslation((language as SupportedLanguage) || 'en');
-
   const [files, setFiles] = React.useState<BatchFileItem[]>([]);
-  const [selectedAction, setSelectedAction] = React.useState<
-    'format' | 'minify' | 'yaml' | 'csv' | 'xml' | 'ts' | 'sql'
-  >('format');
-  const [isProcessing, setIsProcessing] = React.useState<boolean>(false);
-  const [isDragOver, setIsDragOver] = React.useState<boolean>(false);
+  const [selectedAction, setSelectedAction] = React.useState<'format' | 'minify' | 'convert'>('convert');
+  const [targetFormat, setTargetFormat] = React.useState<string>('yaml');
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [isDragOver, setIsDragOver] = React.useState(false);
+  const [completedCount, setCompletedCount] = React.useState(0);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (uploadedFiles: FileList | null) => {
+  const addFiles = async (uploadedFiles: FileList | null) => {
     if (!uploadedFiles) return;
 
-    const newItems: BatchFileItem[] = [];
-    const readPromises: Promise<void>[] = [];
-
-    Array.from(uploadedFiles).forEach((file) => {
-      if (!file.name.endsWith('.json') && file.type !== 'application/json' && !file.name.endsWith('.txt')) {
-        return;
-      }
-
-      const promise = new Promise<void>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          newItems.push({
-            id: Math.random().toString(36).substring(2, 9),
+    const remainingSlots = Math.max(0, MAX_FILES - files.length);
+    const selectedFiles = Array.from(uploadedFiles).slice(0, remainingSlots);
+    const newItems = await Promise.all(
+      selectedFiles.map(async (file): Promise<BatchFileItem> => {
+        const sourceFormat = detectFormatFromFilename(file.name) || 'json';
+        if (file.size > MAX_FILE_SIZE) {
+          return {
+            id: crypto.randomUUID(),
             filename: file.name,
             originalSize: file.size,
-            originalContent: content,
-            status: 'pending',
-          });
-          resolve();
-        };
-        reader.readAsText(file);
-      });
-      readPromises.push(promise);
-    });
-
-    Promise.all(readPromises).then(() => {
-      setFiles((prev) => [...prev, ...newItems]);
-    });
-  };
-
-  const processBatch = () => {
-    setIsProcessing(true);
-
-    const updated = files.map((file) => {
-      try {
-        const parsed = JSON.parse(file.originalContent);
-        let output = '';
-        let ext = '.json';
-
-        const tableName = file.filename.replace(/[^a-zA-Z0-9_]/g, '_').replace(/\.json$/i, '') || 'data_table';
-
-        switch (selectedAction) {
-          case 'format':
-            output = JSON.stringify(parsed, null, 2);
-            ext = '.formatted.json';
-            break;
-          case 'minify':
-            output = JSON.stringify(parsed);
-            ext = '.min.json';
-            break;
-          case 'yaml':
-            output = simpleJsonToYaml(parsed);
-            ext = '.yaml';
-            break;
-          case 'csv':
-            output = jsonToCsv(parsed);
-            ext = '.csv';
-            break;
-          case 'xml':
-            output = simpleJsonToXml(parsed);
-            ext = '.xml';
-            break;
-          case 'ts':
-            output = generateCodeModel(file.originalContent, 'typescript').result;
-            ext = '.d.ts';
-            break;
-          case 'sql':
-            output = simpleJsonToSql(parsed, tableName);
-            ext = '.sql';
-            break;
+            originalContent: '',
+            sourceFormat,
+            status: 'error',
+            errorMessage: 'File exceeds the 10 MB limit',
+          };
         }
 
-        const baseName = file.filename.substring(0, file.filename.lastIndexOf('.')) || file.filename;
+        try {
+          const originalContent = await file.text();
+          return {
+            id: crypto.randomUUID(),
+            filename: file.name,
+            originalSize: file.size,
+            originalContent,
+            sourceFormat,
+            status: 'pending',
+          };
+        } catch (error: unknown) {
+          return {
+            id: crypto.randomUUID(),
+            filename: file.name,
+            originalSize: file.size,
+            originalContent: '',
+            sourceFormat,
+            status: 'error',
+            errorMessage: error instanceof Error ? error.message : 'Failed to read file',
+          };
+        }
+      })
+    );
+
+    setFiles((current) => [...current, ...newItems]);
+  };
+
+  const processBatch = async () => {
+    const candidates = files.filter((file) => file.status !== 'error');
+    if (!candidates.length) return;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setIsProcessing(true);
+    setCompletedCount(0);
+    setFiles((current) =>
+      current.map((file) =>
+        file.status === 'error' ? file : { ...file, status: 'processing', errorMessage: undefined }
+      )
+    );
+
+    let completed = 0;
+    const results = await Promise.all(
+      files.map(async (file): Promise<BatchFileItem> => {
+        if (file.status === 'error') return file;
+
+        const response = await runWorkerTask(
+          selectedAction === 'convert'
+            ? {
+                type: 'convert',
+                input: file.originalContent,
+                sourceFormat: file.sourceFormat,
+                targetFormat,
+                indent: 2,
+              }
+            : {
+                type: selectedAction,
+                input: file.originalContent,
+                indent: 2,
+              },
+          {
+            signal: controller.signal,
+            timeoutMs: 30_000,
+          }
+        );
+
+        completed += 1;
+        setCompletedCount(completed);
+
+        if (!response.success) {
+          const cancelled = response.error === 'Task cancelled';
+          return {
+            ...file,
+            status: cancelled ? 'cancelled' : 'error',
+            errorMessage: response.error || 'Batch conversion failed',
+          };
+        }
+
+        const extension =
+          selectedAction === 'format' || selectedAction === 'minify'
+            ? getFileExtensionForFormat(file.sourceFormat)
+            : getFileExtensionForFormat(targetFormat);
 
         return {
           ...file,
-          convertedContent: output,
-          convertedFilename: `${baseName}${ext}`,
-          status: 'converted' as const,
+          convertedContent: response.result || '',
+          convertedFilename: replaceExtension(file.filename, extension),
+          status: 'converted',
+          warnings: response.warnings?.map((warning) => warning.message),
         };
-      } catch (err: any) {
-        return {
-          ...file,
-          status: 'error' as const,
-          errorMessage: `Invalid JSON: ${err.message}`,
-        };
-      }
-    });
+      })
+    );
 
-    setFiles(updated);
+    setFiles(results);
     setIsProcessing(false);
+    abortControllerRef.current = null;
+  };
+
+  const cancelBatch = () => {
+    abortControllerRef.current?.abort();
   };
 
   const downloadAllZip = async () => {
@@ -149,293 +203,216 @@ export const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
     const url = URL.createObjectURL(content);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `batch_converted_${selectedAction}_files.zip`;
+    link.download = `json-studio-batch-${selectedAction}.zip`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     URL.revokeObjectURL(url);
   };
 
-  const removeFile = (id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  const clearAll = () => {
-    setFiles([]);
-  };
+  const completedFiles = files.filter((file) => file.status === 'converted');
+  const progress = files.length ? Math.round((completedCount / files.length) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={isProcessing ? undefined : onClose} />
 
-      <div className="relative w-full max-w-5xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[92vh]">
-        {/* Header */}
+      <div
+        className="relative w-full max-w-5xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[92vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="batch-processing-title"
+      >
         <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <FolderArchive className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <span>Multi-File Drag & Drop Batch Processor</span>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  Batch Format & Convert
-                </span>
+              <h2 id="batch-processing-title" className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                Multi-Format Batch Processor
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Upload multiple JSON files simultaneously to format, minify, or convert into YAML/CSV/SQL/TS, then download as a ZIP bundle
+                Uses the shared adapter registry and conversion worker for up to {MAX_FILES} files
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            disabled={isProcessing}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 disabled:opacity-40"
+            aria-label="Close batch processor"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Toolbar & Target Format Selector */}
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-800/40 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-zinc-700 dark:text-zinc-300">Target Action:</span>
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value as any)}
+              onChange={(event) => setSelectedAction(event.target.value as 'format' | 'minify' | 'convert')}
+              disabled={isProcessing}
               className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-semibold"
             >
-              <option value="format">Format (2 Spaces)</option>
-              <option value="minify">Minify (1 Line)</option>
-              <option value="yaml">Convert to YAML</option>
-              <option value="csv">Convert to CSV</option>
-              <option value="xml">Convert to XML</option>
-              <option value="ts">Generate TypeScript Types</option>
-              <option value="sql">Convert to SQL Statements</option>
+              <option value="format">Format JSON</option>
+              <option value="minify">Minify JSON</option>
+              <option value="convert">Convert format</option>
             </select>
 
-            <button
-              onClick={processBatch}
-              disabled={files.length === 0 || isProcessing}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Process Batch ({files.length})</span>
-            </button>
+            {selectedAction === 'convert' && (
+              <select
+                value={targetFormat}
+                onChange={(event) => setTargetFormat(event.target.value)}
+                disabled={isProcessing}
+                className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-semibold"
+              >
+                {WRITABLE_FORMATS.map((adapter) => (
+                  <option key={adapter.id} value={adapter.id}>
+                    {adapter.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {!isProcessing ? (
+              <button
+                onClick={processBatch}
+                disabled={!files.some((file) => file.status !== 'error')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-500 disabled:opacity-50"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Process {files.length || ''} files
+              </button>
+            ) : (
+              <button
+                onClick={cancelBatch}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 text-white font-semibold rounded-lg hover:bg-rose-500"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            {files.some((f) => f.status === 'converted') && (
+            {completedFiles.length > 0 && (
               <button
                 onClick={downloadAllZip}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-500 transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-500"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download All as .ZIP</span>
+                Download ZIP
               </button>
             )}
-
-            {files.length > 0 && (
+            {files.length > 0 && !isProcessing && (
               <button
-                onClick={clearAll}
-                className="px-2.5 py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-rose-500 cursor-pointer font-medium"
+                onClick={() => {
+                  setFiles([]);
+                  setCompletedCount(0);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-zinc-500 hover:text-rose-500"
               >
-                Clear All
+                <RefreshCw className="w-3.5 h-3.5" />
+                Clear
               </button>
             )}
           </div>
         </div>
 
-        {/* Content Body & Dropzone */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
-          {/* Dropzone */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
+        {isProcessing && (
+          <div className="px-5 py-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex justify-between text-[11px] text-zinc-500 mb-1">
+              <span>Processing files</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+          <label
+            className={`flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+              isDragOver
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30'
+                : 'border-zinc-300 dark:border-zinc-700 hover:border-indigo-400'
+            }`}
+            onDragOver={(event) => {
+              event.preventDefault();
               setIsDragOver(true);
             }}
             onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
+            onDrop={(event) => {
+              event.preventDefault();
               setIsDragOver(false);
-              handleFileUpload(e.dataTransfer.files);
+              void addFiles(event.dataTransfer.files);
             }}
-            className={`p-6 border-2 border-dashed rounded-xl text-center transition-colors ${
-              isDragOver
-                ? 'border-emerald-500 bg-emerald-500/10'
-                : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40 hover:border-zinc-400'
-            }`}
           >
-            <Upload className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
-            <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-              Drag & drop multiple .json files here, or click to browse
-            </p>
-            <p className="text-zinc-400 text-[11px] mt-1">Supports batch formatting and bulk format conversion</p>
+            <Upload className="w-6 h-6 text-indigo-500 mb-2" />
+            <span className="font-semibold text-sm text-zinc-700 dark:text-zinc-200">Drop supported data files here</span>
+            <span className="text-[11px] text-zinc-500 mt-1">Maximum 10 MB per file and {MAX_FILES} files per batch</span>
             <input
               type="file"
               multiple
-              accept=".json,.txt,application/json"
-              onChange={(e) => handleFileUpload(e.target.files)}
+              accept={ACCEPTED_EXTENSIONS}
               className="hidden"
-              id="batch-file-input"
+              disabled={isProcessing || files.length >= MAX_FILES}
+              onChange={(event) => void addFiles(event.target.files)}
             />
-            <label
-              htmlFor="batch-file-input"
-              className="inline-block mt-3 px-4 py-1.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-lg cursor-pointer hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
+          </label>
+
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-start gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 text-xs"
             >
-              Select Files
-            </label>
-          </div>
+              <FileText className="w-4 h-4 mt-0.5 text-zinc-400" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold truncate">{file.filename}</span>
+                  <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px]">
+                    {file.sourceFormat}
+                  </span>
+                  {file.status === 'converted' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                  {(file.status === 'error' || file.status === 'cancelled') && (
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-500">
+                  {(file.originalSize / 1024).toFixed(1)} KB - {file.status}
+                </div>
+                {file.errorMessage && <div className="mt-1 text-rose-600 dark:text-rose-400">{file.errorMessage}</div>}
+                {file.warnings?.map((warning) => (
+                  <div key={warning} className="mt-1 text-amber-600 dark:text-amber-400">
+                    {warning}
+                  </div>
+                ))}
+              </div>
 
-          {/* Files Table */}
-          {files.length > 0 && (
-            <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-              <table className="w-full text-left border-collapse font-mono">
-                <thead>
-                  <tr className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[11px] border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="p-2.5">File Name</th>
-                    <th className="p-2.5">Original Size</th>
-                    <th className="p-2.5">Status</th>
-                    <th className="p-2.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {files.map((file) => (
-                    <tr key={file.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                      <td className="p-2.5 font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <FileCode className="w-4 h-4 text-emerald-500" />
-                        <span>{file.filename}</span>
-                      </td>
-                      <td className="p-2.5 text-zinc-500">
-                        {Math.round(file.originalSize / 1024 * 10) / 10} KB
-                      </td>
-                      <td className="p-2.5">
-                        {file.status === 'pending' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold">
-                            Pending
-                          </span>
-                        )}
-                        {file.status === 'converted' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
-                            Converted ({file.convertedFilename})
-                          </span>
-                        )}
-                        {file.status === 'error' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold" title={file.errorMessage}>
-                            Error
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-2.5 text-right space-x-2">
-                        {file.status === 'converted' && file.convertedContent && (
-                          <button
-                            onClick={() => {
-                              onApplySingleToEditor(file.convertedContent!);
-                              onClose();
-                            }}
-                            className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
-                          >
-                            Load in Editor
-                          </button>
-                        )}
-                        <button
-                          onClick={() => removeFile(file.id)}
-                          className="text-xs text-rose-500 hover:underline cursor-pointer"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {file.convertedContent && (
+                <button
+                  onClick={() => onApplySingleToEditor(file.convertedContent || '')}
+                  className="px-2.5 py-1 rounded bg-indigo-600 text-white font-semibold"
+                >
+                  Open
+                </button>
+              )}
+              {!isProcessing && (
+                <button
+                  onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
+                  className="p-1 text-zinc-400 hover:text-rose-500"
+                  aria-label={`Remove ${file.filename}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            Batch files are processed entirely in browser memory for privacy
-          </span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-          >
-            Close
-          </button>
+          ))}
         </div>
       </div>
     </div>
   );
 };
-
-function simpleJsonToYaml(obj: any, indent = 0): string {
-  const pad = ' '.repeat(indent);
-  if (obj === null || obj === undefined) return 'null';
-  if (typeof obj === 'boolean') return String(obj);
-  if (typeof obj === 'number') return String(obj);
-  if (typeof obj === 'string') return obj.includes('\n') ? `|\n${pad}  ${obj.replace(/\n/g, `\n${pad}  `)}` : `"${obj.replace(/"/g, '\\"')}"`;
-
-  if (Array.isArray(obj)) {
-    if (obj.length === 0) return '[]';
-    return obj.map((item) => `${pad}- ${simpleJsonToYaml(item, indent + 2).trimStart()}`).join('\n');
-  }
-
-  if (typeof obj === 'object') {
-    const keys = Object.keys(obj);
-    if (keys.length === 0) return '{}';
-    return keys
-      .map((k) => {
-        const val = obj[k];
-        if (typeof val === 'object' && val !== null) {
-          return `${pad}${k}:\n${simpleJsonToYaml(val, indent + 2)}`;
-        }
-        return `${pad}${k}: ${simpleJsonToYaml(val, indent)}`;
-      })
-      .join('\n');
-  }
-  return String(obj);
-}
-
-function simpleJsonToXml(obj: any, rootTag = 'root'): string {
-  function toXml(val: any, tag: string): string {
-    if (val === null || val === undefined) return `<${tag}/>`;
-    if (typeof val !== 'object') return `<${tag}>${String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</${tag}>`;
-
-    if (Array.isArray(val)) {
-      return val.map((item) => toXml(item, 'item')).join('\n');
-    }
-
-    const children = Object.keys(val)
-      .map((k) => toXml(val[k], k))
-      .join('\n');
-    return `<${tag}>\n${children}\n</${tag}>`;
-  }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n${toXml(obj, rootTag)}`;
-}
-
-function simpleJsonToSql(obj: any, tableName = 'data_table'): string {
-  const rows = Array.isArray(obj) ? obj : [obj];
-  if (rows.length === 0 || typeof rows[0] !== 'object' || !rows[0]) {
-    return `-- No object records found to convert to SQL`;
-  }
-
-  const keys = Object.keys(rows[0]);
-  const colList = keys.map((k) => `\`${k}\``).join(', ');
-
-  const valuesStatements = rows
-    .map((row) => {
-      const vals = keys.map((k) => {
-        const v = row[k];
-        if (v === null || v === undefined) return 'NULL';
-        if (typeof v === 'boolean') return v ? '1' : '0';
-        if (typeof v === 'number') return String(v);
-        return `'${String(v).replace(/'/g, "''")}'`;
-      });
-      return `(${vals.join(', ')})`;
-    })
-    .join(',\n  ');
-
-  return `INSERT INTO \`${tableName}\` (${colList})\nVALUES\n  ${valuesStatements};`;
-}
