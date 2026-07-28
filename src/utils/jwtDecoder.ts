@@ -48,6 +48,12 @@ export function decodeJwt(token: string): JwtDecodeResult {
 
     const header = JSON.parse(headerStr);
     const payload = JSON.parse(payloadStr);
+    if (!header || typeof header !== 'object' || Array.isArray(header)) {
+      throw new Error('JWT header must be a JSON object');
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('JWT payload must be a JSON object');
+    }
 
     let isExpired = false;
     let issuedAt: Date | undefined;
@@ -59,7 +65,7 @@ export function decodeJwt(token: string): JwtDecodeResult {
 
     if (payload.exp && typeof payload.exp === 'number') {
       expiresAt = new Date(payload.exp * 1000);
-      if (payload.exp < nowSec) {
+      if (payload.exp <= nowSec) {
         isExpired = true;
         timeRemainingSec = 0;
       } else {
@@ -117,7 +123,25 @@ export async function verifyJwtSignature(token: string, secret: string): Promise
     }
 
     if (!secret) {
-      return { verified: false, error: 'Secret or public key is required' };
+      return { verified: false, error: 'HMAC secret is required' };
+    }
+
+    const header = JSON.parse(base64UrlDecode(parts[0]));
+    const algorithm = header?.alg;
+    const hashByAlgorithm: Record<string, string> = {
+      HS256: 'SHA-256',
+      HS384: 'SHA-384',
+      HS512: 'SHA-512',
+    };
+    const hash = hashByAlgorithm[algorithm];
+    if (!hash) {
+      return {
+        verified: false,
+        error: `Unsupported JWT algorithm "${algorithm || 'missing'}". This verifier supports HS256, HS384, and HS512.`,
+      };
+    }
+    if (!parts[2]) {
+      return { verified: false, error: 'JWT signature is empty' };
     }
 
     const encoder = new TextEncoder();
@@ -127,7 +151,7 @@ export async function verifyJwtSignature(token: string, secret: string): Promise
     const key = await crypto.subtle.importKey(
       'raw',
       keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
+      { name: 'HMAC', hash },
       false,
       ['verify']
     );

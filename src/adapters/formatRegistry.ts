@@ -1,4 +1,5 @@
 import { formatCodecs } from './formatCodecs';
+import type { CsvOptions, SqlOptions, XmlOptions } from '../types';
 
 export interface ConversionError { message: string; line?: number; column?: number }
 export interface ConversionWarning { message: string; code: string }
@@ -20,6 +21,11 @@ export interface FormatCapabilities {
   supportsComments: boolean;
   supportsTypes: boolean;
 }
+export interface FormatSerializationOptions {
+  csvOptions?: CsvOptions;
+  xmlOptions?: XmlOptions;
+  sqlOptions?: SqlOptions;
+}
 export type AdapterSupport = 'full' | 'partial' | 'none';
 export interface FormatAdapter {
   id: string;
@@ -29,8 +35,8 @@ export interface FormatAdapter {
   capabilities: FormatCapabilities;
   readSupport: AdapterSupport;
   writeSupport: AdapterSupport;
-  parse: (input: string) => { valid: boolean; data?: unknown; error?: string };
-  serialize: (data: unknown, indent?: string | number) => string;
+  parse: (input: string, options?: FormatSerializationOptions) => { valid: boolean; data?: unknown; error?: string };
+  serialize: (data: unknown, indent?: string | number, options?: FormatSerializationOptions) => string;
 }
 export type CompatibilityStatus = 'same' | 'supported' | 'partial' | 'lossy' | 'none';
 export interface ConversionCompatibility { status: CompatibilityStatus; label: string; reasons: string[] }
@@ -150,7 +156,8 @@ export function convertFormat(
   input: string,
   sourceFormat: string,
   targetFormat: string,
-  indent: string | number = 2
+  indent: string | number = 2,
+  options: FormatSerializationOptions = {}
 ): ConversionResult {
   const startTime = performance.now();
   const sourceId = resolveFormatId(sourceFormat);
@@ -165,7 +172,7 @@ export function convertFormat(
   if (source.readSupport === 'none') {
     return { ...base, valid: false, errors: [{ message: `${source.name} is output-only and cannot be used as a source format` }], warnings: [], durationMs: performance.now() - startTime };
   }
-  const parsed = source.parse(input);
+  const parsed = source.parse(input, options);
   if (!parsed.valid) {
     return { ...base, valid: false, errors: [{ message: parsed.error || `Failed to parse ${source.name}` }], warnings: [], durationMs: performance.now() - startTime };
   }
@@ -179,7 +186,7 @@ export function convertFormat(
   if (features.hasTypedScalars && !target.capabilities.supportsTypes) warnings.push({ code: 'DATA_LOSS_TYPES', message: `${target.name} does not preserve native scalar types.` });
 
   try {
-    const outputText = target.serialize(parsed.data, indent);
+    const outputText = target.serialize(parsed.data, indent, options);
     const lossyDetails = warnings.filter((warning) => warning.code.startsWith('DATA_LOSS_')).map((warning) => warning.message);
     return { outputText, parsedObj: parsed.data, sourceFormat: sourceId, targetFormat: targetId, valid: true, errors: [], warnings, durationMs: performance.now() - startTime, isLossy: lossyDetails.length > 0, lossyDetails };
   } catch (error: unknown) {

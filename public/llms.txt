@@ -1,6 +1,6 @@
 # JSON Studio Pro (json.lolisoft.eu)
 
-> Free, 100% Client-Side Universal Data Converter & Developer Studio (v2.6.0).
+> Free, 100% Client-Side Universal Data Converter & Developer Studio (v2.7.0).
 
 JSON Studio Pro is a secure, sub-millisecond web application for formatting, repairing, validating, side-by-side diffing, querying, and cross-converting data between 12+ developer formats entirely within the browser. No data ever leaves the user's local machine.
 

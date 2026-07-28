@@ -30,12 +30,30 @@ const DEFAULT_PREFS: UserPreferences = {
   autoRepairOnPaste: false,
 };
 
+function defaultPreferences(): UserPreferences {
+  return {
+    ...DEFAULT_PREFS,
+    csvOptions: { ...DEFAULT_PREFS.csvOptions },
+    xmlOptions: { ...DEFAULT_PREFS.xmlOptions },
+    sqlOptions: { ...DEFAULT_PREFS.sqlOptions },
+  };
+}
+
 export function getHistory(): HistoryItem[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    const items: HistoryItem[] = JSON.parse(raw);
-    return Array.isArray(items) ? items : [];
+    const items: unknown = JSON.parse(raw);
+    if (!Array.isArray(items)) return [];
+    return items.filter(
+      (item): item is HistoryItem =>
+        Boolean(item) &&
+        typeof item === 'object' &&
+        typeof item.id === 'string' &&
+        typeof item.timestamp === 'number' &&
+        typeof item.inputText === 'string' &&
+        typeof item.outputText === 'string'
+    );
   } catch {
     return [];
   }
@@ -115,12 +133,20 @@ export function getUserPreferences(): UserPreferences {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (raw) {
-      return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+      const saved = JSON.parse(raw);
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return defaultPreferences();
+      return {
+        ...defaultPreferences(),
+        ...saved,
+        csvOptions: { ...DEFAULT_PREFS.csvOptions, ...(saved.csvOptions || {}) },
+        xmlOptions: { ...DEFAULT_PREFS.xmlOptions, ...(saved.xmlOptions || {}) },
+        sqlOptions: { ...DEFAULT_PREFS.sqlOptions, ...(saved.sqlOptions || {}) },
+      };
     }
   } catch {
     // Ignore error
   }
-  return DEFAULT_PREFS;
+  return defaultPreferences();
 }
 
 export function saveUserPreferences(prefs: UserPreferences): void {

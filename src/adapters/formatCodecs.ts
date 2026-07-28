@@ -20,7 +20,9 @@ import {
   tomlToJson,
   urlEncodedToJson,
   xmlToJson,
+  yamlToJson,
 } from '../utils/jsonUtils';
+import type { FormatSerializationOptions } from './formatRegistry';
 
 export interface ParseResult {
   valid: boolean;
@@ -29,8 +31,8 @@ export interface ParseResult {
 }
 
 export interface FormatCodec {
-  parse: (input: string) => ParseResult;
-  serialize: (data: unknown, indent?: string | number) => string;
+  parse: (input: string, options?: FormatSerializationOptions) => ParseResult;
+  serialize: (data: unknown, indent?: string | number, options?: FormatSerializationOptions) => string;
 }
 
 const ok = (data: unknown): ParseResult => ({ valid: true, data });
@@ -230,27 +232,15 @@ export const formatCodecs: Record<string, FormatCodec> = {
     serialize: (data, indent = 2) => JSON.stringify(data, null, indentValue(indent)),
   },
   csv: {
-    parse: (input) => { try { return ok(csvToJson(input)); } catch (error: unknown) { return fail(error, 'Invalid CSV'); } },
-    serialize: (data) => jsonToCsv(data),
+    parse: (input, options) => { try { return ok(csvToJson(input, options?.csvOptions)); } catch (error: unknown) { return fail(error, 'Invalid CSV'); } },
+    serialize: (data, _indent, options) => jsonToCsv(data, options?.csvOptions),
   },
   xml: {
     parse: (input) => { try { return ok(xmlToJson(input)); } catch (error: unknown) { return fail(error, 'Invalid XML'); } },
-    serialize: (data) => jsonToXml(data),
+    serialize: (data, _indent, options) => jsonToXml(data, options?.xmlOptions),
   },
   yaml: {
-    parse: (input) => {
-      try { return ok(JSON.parse(input)); } catch {
-        const data: Record<string, unknown> = {};
-        for (const rawLine of input.split(/\r?\n/)) {
-          const line = rawLine.trim();
-          if (!line || line.startsWith('#')) continue;
-          const separator = line.indexOf(':');
-          if (separator < 1) return { valid: false, error: 'Unsupported nested YAML syntax' };
-          data[line.slice(0, separator).trim()] = parsePrimitive(line.slice(separator + 1));
-        }
-        return ok(data);
-      }
-    },
+    parse: (input) => { const value = yamlToJson(input); return fromJsonResult(value.result, value.error); },
     serialize: (data) => jsonToYaml(JSON.stringify(data)).result,
   },
   toml: {
@@ -259,7 +249,7 @@ export const formatCodecs: Record<string, FormatCodec> = {
   },
   sql: {
     parse: (input) => { const value = sqlToJson(input); return fromJsonResult(value.result, value.error); },
-    serialize: (data) => jsonToSql(JSON.stringify(data)).result,
+    serialize: (data, _indent, options) => jsonToSql(JSON.stringify(data), options?.sqlOptions).result,
   },
   markdown: {
     parse: (input) => { const value = markdownTableToJson(input); return fromJsonResult(value.result, value.error); },

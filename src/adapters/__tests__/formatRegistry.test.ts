@@ -75,6 +75,65 @@ describe('Format Adapter Registry', () => {
     expect(JSON.parse(result.outputText)).toEqual([{ id: 1, name: 'Alice' }]);
   });
 
+  it('round-trips nested YAML through the same adapter used by the UI', () => {
+    const source = {
+      service: {
+        name: 'api',
+        ports: [8080, 8081],
+        environment: { enabled: true, region: 'eu-central' },
+      },
+    };
+
+    const yaml = convertFormat(JSON.stringify(source), 'json', 'yaml');
+    const restored = convertFormat(yaml.outputText, 'yaml', 'json');
+
+    expect(yaml.valid).toBe(true);
+    expect(restored.valid).toBe(true);
+    expect(JSON.parse(restored.outputText)).toEqual(source);
+  });
+
+  it('passes user serialization preferences through the registry', () => {
+    const result = convertFormat(
+      JSON.stringify([{ id: 1, name: 'Alice' }]),
+      'json',
+      'csv',
+      2,
+      {
+        csvOptions: {
+          delimiter: ';',
+          header: true,
+          flattenNested: true,
+        },
+      }
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.outputText).toContain('id;name');
+  });
+
+  it('honors headerless CSV parsing and nested-object serialization preferences', () => {
+    const headerless = convertFormat('1;Alice\n2;Bob', 'csv', 'json', 2, {
+      csvOptions: { delimiter: ';', header: false, flattenNested: false },
+    });
+    const unflattened = convertFormat(
+      JSON.stringify([{ id: 1, profile: { role: 'admin' } }]),
+      'json',
+      'csv',
+      2,
+      {
+        csvOptions: { delimiter: ',', header: true, flattenNested: false },
+      }
+    );
+
+    expect(JSON.parse(headerless.outputText)).toEqual([
+      { col_1: 1, col_2: 'Alice' },
+      { col_1: 2, col_2: 'Bob' },
+    ]);
+    expect(unflattened.outputText).toContain('profile');
+    expect(unflattened.outputText).toContain('"{""role"":""admin""}"');
+    expect(unflattened.outputText).not.toContain('profile.role');
+  });
+
   it('derives matrix status from adapter direction and capabilities', () => {
     expect(getConversionCompatibility('typescript', 'json').status).toBe('none');
     expect(getConversionCompatibility('json', 'env').status).toBe('lossy');

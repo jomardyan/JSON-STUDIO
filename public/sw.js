@@ -37,13 +37,26 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
   // Handle SPA navigation requests
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html') || caches.match('/');
-      })
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse.ok) {
+            const responseToCache = networkResponse.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', responseToCache)));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cached = await caches.match('/index.html') || await caches.match('/');
+          return cached || new Response('JSON Studio is unavailable offline until it has been opened once.', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          });
+        })
     );
     return;
   }
@@ -73,11 +86,16 @@ self.addEventListener('fetch', (event) => {
         });
 
         return networkResponse;
-      }).catch(() => {
+      }).catch(async () => {
         // Fallback for HTML/Text requests if offline
         if (event.request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('/index.html');
+          const cached = await caches.match('/index.html');
+          if (cached) return cached;
         }
+        return new Response('Resource unavailable offline', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
       });
     })
   );

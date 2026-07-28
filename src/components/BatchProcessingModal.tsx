@@ -35,7 +35,7 @@ interface BatchFileItem {
 interface BatchProcessingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplySingleToEditor: (content: string) => void;
+  onApplySingleToEditor: (content: string, format: string) => void;
   language?: string;
 }
 
@@ -211,7 +211,8 @@ export const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
   };
 
   const completedFiles = files.filter((file) => file.status === 'converted');
-  const progress = files.length ? Math.round((completedCount / files.length) * 100) : 0;
+  const processableCount = files.filter((file) => file.status !== 'error').length;
+  const progress = processableCount ? Math.round((completedCount / processableCount) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -394,7 +395,12 @@ export const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
 
               {file.convertedContent && (
                 <button
-                  onClick={() => onApplySingleToEditor(file.convertedContent || '')}
+                  onClick={() =>
+                    onApplySingleToEditor(
+                      file.convertedContent || '',
+                      selectedAction === 'convert' ? targetFormat : file.sourceFormat
+                    )
+                  }
                   className="px-2.5 py-1 rounded bg-indigo-600 text-white font-semibold"
                 >
                   Open

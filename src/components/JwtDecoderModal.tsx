@@ -28,11 +28,13 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
   const [copied, setCopied] = React.useState<boolean>(false);
   const [secretInput, setSecretInput] = React.useState<string>('your-256-bit-secret');
   const [sigStatus, setSigStatus] = React.useState<'unverified' | 'verified' | 'invalid'>('unverified');
+  const [sigError, setSigError] = React.useState<string | null>(null);
 
   const handleVerifySignature = async () => {
     if (!secretInput.trim() || !jwtInput) return;
-    const { verified } = await verifyJwtSignature(jwtInput, secretInput.trim());
+    const { verified, error } = await verifyJwtSignature(jwtInput, secretInput.trim());
     setSigStatus(verified ? 'verified' : 'invalid');
+    setSigError(error || null);
   };
 
   React.useEffect(() => {
@@ -48,6 +50,11 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
     const res = decodeJwt(jwtInput);
     setDecoded(res);
   }, [isOpen, jwtInput]);
+
+  React.useEffect(() => {
+    setSigStatus('unverified');
+    setSigError(null);
+  }, [jwtInput, secretInput]);
 
   if (!isOpen) return null;
 
@@ -128,7 +135,7 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
                     )}
                     <div>
                       <span className="font-bold block text-xs">
-                        {decoded?.isExpired ? 'Token Expired' : 'Token Active / Valid'}
+                        {decoded?.isExpired ? 'Token Expired' : 'Token Not Expired'}
                       </span>
                       <span className="text-[11px] opacity-80">
                         {decoded?.expiresAt
@@ -244,7 +251,7 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
                 <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
                   <input
                     type="password"
-                    placeholder="Enter HMAC Secret / Public Key to verify signature..."
+                    placeholder="Enter HMAC secret (HS256 / HS384 / HS512)..."
                     value={secretInput}
                     onChange={(e) => setSecretInput(e.target.value)}
                     className="flex-1 bg-zinc-950 text-zinc-200 border border-zinc-700 rounded px-2.5 py-1 text-xs outline-none focus:border-indigo-500"
@@ -256,6 +263,7 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
                     Verify Signature
                   </button>
                 </div>
+                {sigError && <div className="text-rose-400">{sigError}</div>}
               </div>
             </>
           )}
@@ -264,7 +272,7 @@ export const JwtDecoderModal: React.FC<JwtDecoderModalProps> = ({
         {/* Footer */}
         <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            JWT signature verification requires secret key or public RSA/ECDSA key
+            Decoding does not prove authenticity. Signature verification supports HMAC JWTs (HS256 / HS384 / HS512).
           </span>
           <button
             onClick={onClose}

@@ -90,7 +90,6 @@ import {
   ndjsonToJson,
   jsonToPythonDict,
   jsonToPhpArray,
-  convertAnyFormat,
   detectFormat,
 } from './utils/jsonUtils';
 import { SAMPLE_DATASETS, SampleItem } from './utils/samples';
@@ -132,7 +131,24 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { ConversionMatrixModal } from './components/ConversionMatrixModal';
 import { deduplicateJsonArray, flattenNestedArray, isChartableData } from './utils/jsonUtils';
-import { getFileExtensionForFormat } from './adapters/formatRegistry';
+import {
+  convertFormat,
+  detectFormatFromFilename,
+  getFileExtensionForFormat,
+  getFormatAdapter,
+  listFormatAdapters,
+} from './adapters/formatRegistry';
+import { APP_VERSION } from './config/version';
+
+const READABLE_FORMATS = listFormatAdapters().filter((adapter) => adapter.readSupport !== 'none');
+const WRITABLE_FORMATS = listFormatAdapters().filter((adapter) => adapter.writeSupport !== 'none');
+
+function getOutputLanguage(format: string): 'json' | 'xml' | 'csv' | 'text' {
+  if (format === 'json' || format === 'json5' || format === 'ndjson') return 'json';
+  if (format === 'xml' || format === 'html') return 'xml';
+  if (format === 'csv') return 'csv';
+  return 'text';
+}
 
 export default function App() {
   // Theme state
@@ -243,7 +259,13 @@ export default function App() {
 
   // Privacy Banner State
   const [showPrivacyBanner, setShowPrivacyBanner] = React.useState<boolean>(
-    !localStorage.getItem('privacyConsent')
+    () => {
+      try {
+        return localStorage.getItem('privacyConsent') !== 'true';
+      } catch {
+        return true;
+      }
+    }
   );
 
   React.useEffect(() => {
@@ -267,7 +289,11 @@ export default function App() {
   };
 
   const handlePrivacyAccept = () => {
-    localStorage.setItem('privacyConsent', 'true');
+    try {
+      localStorage.setItem('privacyConsent', 'true');
+    } catch {
+      // The acknowledgement remains valid for this session if storage is unavailable.
+    }
     setShowPrivacyBanner(false);
   };
 
@@ -282,17 +308,15 @@ export default function App() {
         return;
       }
 
-      const { result, error: convErr, parsed } = convertAnyFormat(inputText, fromFmt, toFmt, {
-        indent: preferences.indent,
+      const conversion = convertFormat(inputText, fromFmt, toFmt, preferences.indent, {
         csvOptions: preferences.csvOptions,
         xmlOptions: preferences.xmlOptions,
         sqlOptions: preferences.sqlOptions,
       });
-
-      let lang: 'json' | 'xml' | 'csv' | 'text' = 'text';
-      if (toFmt === 'json' || toFmt === 'ndjson') lang = 'json';
-      else if (toFmt === 'xml' || toFmt === 'html') lang = 'xml';
-      else if (toFmt === 'csv') lang = 'csv';
+      const result = conversion.outputText;
+      const convErr = conversion.errors[0]?.message;
+      const parsed = conversion.parsedObj;
+      const lang = getOutputLanguage(toFmt);
 
       const formatNames: Record<DataFormat, string> = {
         json: 'JSON',
@@ -364,17 +388,31 @@ export default function App() {
   // Apply theme class to <html> element
   React.useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      const useDark = theme === 'dark' || (theme === 'system' && mediaQuery.matches);
+      root.classList.toggle('dark', useDark);
+    };
+
+    applyTheme();
     saveTheme(theme);
+
+    if (theme !== 'system') return;
+    mediaQuery.addEventListener('change', applyTheme);
+    return () => mediaQuery.removeEventListener('change', applyTheme);
   }, [theme]);
 
   // Initial format on load
   React.useEffect(() => {
-    handleFormat('format');
+    const action = new URLSearchParams(window.location.search).get('action');
+    if (action === 'csv') {
+      handleFormat('to-csv');
+    } else if (action === 'sql') {
+      setIsSqlModalOpen(true);
+      handleFormat('format');
+    } else {
+      handleFormat('format');
+    }
   }, []);
 
   const showToast = (msg: string) => {
@@ -537,15 +575,15 @@ export default function App() {
           } else if (inputFormat === 'yaml') {
             title = 'YAML ➔ JSON';
             lang = 'json';
-            const { result, error: ymlErr, parsed } = convertAnyFormat(inputText, 'yaml', 'json', { indent: preferences.indent });
-            resultText = result;
-            if (ymlErr) {
+            const conversion = convertFormat(inputText, 'yaml', 'json', preferences.indent);
+            resultText = conversion.outputText;
+            if (!conversion.valid) {
               validState = false;
-              errDetail = { message: `YAML Parse Error: ${ymlErr}` };
+              errDetail = { message: `YAML Parse Error: ${conversion.errors[0]?.message || 'Invalid YAML'}` };
             } else {
               validState = true;
               errDetail = null;
-              parsedObj = parsed;
+              parsedObj = conversion.parsedObj;
             }
           } else {
             title = 'Formatted JSON';
@@ -889,49 +927,21 @@ export default function App() {
       return;
     }
 
-    if (fmt === 'json') {
-      const v = validateJson(text);
-      setIsValid(v.valid);
-      setError(v.error);
-    } else if (fmt === 'toml') {
-      const { error: tomlErr } = tomlToJson(text);
-      if (tomlErr) {
-        setIsValid(false);
-        setError({ message: `TOML Parse Error: ${tomlErr}` });
-      } else {
-        setIsValid(true);
-        setError(null);
-      }
-    } else if (fmt === 'properties') {
-      const { error: propErr } = propertiesToJson(text);
-      if (propErr) {
-        setIsValid(false);
-        setError({ message: `Properties Error: ${propErr}` });
-      } else {
-        setIsValid(true);
-        setError(null);
-      }
-    } else if (fmt === 'xml') {
-      try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, 'text/xml');
-        const parserError = xmlDoc.getElementsByTagName('parsererror');
-        if (parserError.length > 0) {
-          setIsValid(false);
-          setError({ message: `Invalid XML syntax: ${parserError[0].textContent?.slice(0, 80) || ''}` });
-        } else {
-          setIsValid(true);
-          setError(null);
-        }
-      } catch {
-        setIsValid(true);
-        setError(null);
-      }
-    } else {
-      setIsValid(true);
-      setError(null);
+    const adapter = getFormatAdapter(fmt);
+    if (!adapter || adapter.readSupport === 'none') {
+      setIsValid(false);
+      setError({ message: `${adapter?.name || fmt} cannot be used as an input format` });
+      return;
     }
-  }, []);
+
+    const result = adapter.parse(text, {
+      csvOptions: preferences.csvOptions,
+      xmlOptions: preferences.xmlOptions,
+      sqlOptions: preferences.sqlOptions,
+    });
+    setIsValid(result.valid);
+    setError(result.valid ? null : { message: result.error || `Invalid ${adapter.name}` });
+  }, [preferences.csvOptions, preferences.sqlOptions, preferences.xmlOptions]);
 
   // Validate on input edit
   const handleInputChange = React.useCallback(
@@ -953,12 +963,16 @@ export default function App() {
   );
 
   // Copy output to clipboard
-  const handleCopyOutput = React.useCallback(() => {
+  const handleCopyOutput = React.useCallback(async () => {
     if (!outputText) return;
-    navigator.clipboard.writeText(outputText);
-    setIsCopied(true);
-    showToast('Copied output to clipboard!');
-    setTimeout(() => setIsCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(outputText);
+      setIsCopied(true);
+      showToast('Copied output to clipboard!');
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      showToast('Clipboard access was blocked by the browser');
+    }
   }, [outputText]);
 
   // Swap output text back into input
@@ -1103,11 +1117,8 @@ export default function App() {
     reader.onload = (e) => {
       const content = e.target?.result as string;
       if (content) {
-        let fmt: DataFormat = 'json';
-        if (file.name.endsWith('.xml')) fmt = 'xml';
-        else if (file.name.endsWith('.csv')) fmt = 'csv';
-        else if (file.name.endsWith('.toml')) fmt = 'toml';
-        else if (file.name.endsWith('.properties') || file.name.endsWith('.env')) fmt = 'properties';
+        const filenameFormat = detectFormatFromFilename(file.name);
+        const fmt = (filenameFormat || detectFormat(content)) as DataFormat;
 
         setInputText(content);
         setInputFormat(fmt);
@@ -1216,10 +1227,31 @@ export default function App() {
   const handleSelectHistoryItem = (item: HistoryItem) => {
     setInputText(item.inputText);
     setOutputText(item.outputText);
-    setInputFormat(item.inputFormat);
-    setOutputLanguage(item.outputFormat as any);
+    const restoredInputFormat = (getFormatAdapter(item.inputFormat)?.id || 'json') as DataFormat;
+    setInputFormat(restoredInputFormat);
+    setOutputLanguage(getOutputLanguage(item.outputFormat));
     setActiveActionTitle(item.title);
+
+    const inputResult = getFormatAdapter(restoredInputFormat)?.parse(item.inputText);
+    const outputResult = getFormatAdapter(item.outputFormat)?.parse(item.outputText);
+    const restoredData = outputResult?.valid ? outputResult.data : inputResult?.valid ? inputResult.data : null;
+    setParsedData(restoredData);
+    setIsValid(Boolean(inputResult?.valid));
+    setError(inputResult?.valid ? null : { message: inputResult?.error || 'Unable to parse restored input' });
     showToast(`Restored: ${item.title}`);
+  };
+
+  const loadJsonIntoEditor = (jsonText: string, message: string) => {
+    const validation = validateJson(jsonText);
+    setInputText(jsonText);
+    setOutputText(jsonText);
+    setInputFormat('json');
+    setOutputLanguage('json');
+    setParsedData(validation.parsed);
+    setIsValid(validation.valid);
+    setError(validation.error);
+    setActiveActionTitle('Formatted JSON');
+    showToast(message);
   };
 
   // Stats calculation
@@ -1254,7 +1286,7 @@ export default function App() {
         onOpenChangelog={() => setIsChangelogOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        version="v2.7.0"
+        version={APP_VERSION}
         isOffline={isOffline}
         onSelectSample={handleSelectSample}
         showInstallButton={showInstallButton}
@@ -1862,18 +1894,11 @@ export default function App() {
                 }}
                 className="bg-transparent text-white font-mono text-xs font-medium cursor-pointer focus:outline-none"
               >
-                <option value="json" className="bg-zinc-800 text-white">JSON</option>
-                <option value="xml" className="bg-zinc-800 text-white">XML</option>
-                <option value="csv" className="bg-zinc-800 text-white">CSV</option>
-                <option value="yaml" className="bg-zinc-800 text-white">YAML</option>
-                <option value="toml" className="bg-zinc-800 text-white">TOML</option>
-                <option value="markdown" className="bg-zinc-800 text-white">Markdown Table</option>
-                <option value="ndjson" className="bg-zinc-800 text-white">NDJSON / JSON Lines</option>
-                <option value="properties" className="bg-zinc-800 text-white">.env / Properties</option>
-                <option value="ini" className="bg-zinc-800 text-white">INI Config</option>
-                <option value="hcl" className="bg-zinc-800 text-white">HCL / Terraform</option>
-                <option value="json5" className="bg-zinc-800 text-white">JSON5 / JSONC</option>
-                <option value="urlencoded" className="bg-zinc-800 text-white">URL Query String</option>
+                {READABLE_FORMATS.map((format) => (
+                  <option key={format.id} value={format.id} className="bg-zinc-800 text-white">
+                    {format.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1891,23 +1916,11 @@ export default function App() {
                 }}
                 className="bg-transparent text-white font-mono text-xs font-semibold cursor-pointer focus:outline-none"
               >
-                <option value="json" className="bg-zinc-800 text-white">Formatted JSON</option>
-                <option value="xml" className="bg-zinc-800 text-white">XML Document</option>
-                <option value="csv" className="bg-zinc-800 text-white">CSV Spreadsheet</option>
-                <option value="yaml" className="bg-zinc-800 text-white">YAML</option>
-                <option value="toml" className="bg-zinc-800 text-white">TOML Config</option>
-                <option value="sql" className="bg-zinc-800 text-white">SQL INSERT Statements</option>
-                <option value="html" className="bg-zinc-800 text-white">HTML Table</option>
-                <option value="markdown" className="bg-zinc-800 text-white">Markdown Table</option>
-                <option value="ts-interface" className="bg-zinc-800 text-white">TypeScript Interfaces</option>
-                <option value="ndjson" className="bg-zinc-800 text-white">NDJSON / JSON Lines</option>
-                <option value="python" className="bg-zinc-800 text-white">Python Dict</option>
-                <option value="php" className="bg-zinc-800 text-white">PHP Array</option>
-                <option value="properties" className="bg-zinc-800 text-white">.env / Properties</option>
-                <option value="ini" className="bg-zinc-800 text-white">INI Config</option>
-                <option value="hcl" className="bg-zinc-800 text-white">HCL / Terraform</option>
-                <option value="json5" className="bg-zinc-800 text-white">JSON5 / JSONC</option>
-                <option value="urlencoded" className="bg-zinc-800 text-white">URL Query String</option>
+                {WRITABLE_FORMATS.map((format) => (
+                  <option key={format.id} value={format.id} className="bg-zinc-800 text-white">
+                    {format.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1950,16 +1963,11 @@ export default function App() {
                   }}
                   className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-0.5 text-zinc-800 dark:text-zinc-200 font-mono text-[11px] font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  <option value="json">JSON</option>
-                  <option value="xml">XML</option>
-                  <option value="csv">CSV</option>
-                  <option value="yaml">YAML</option>
-                  <option value="toml">TOML</option>
-                  <option value="sql">SQL Query / INSERT</option>
-                  <option value="markdown">Markdown Table</option>
-                  <option value="ndjson">NDJSON / JSON Lines</option>
-                  <option value="urlencoded">URL Encoded Query</option>
-                  <option value="properties">Properties / .env</option>
+                  {READABLE_FORMATS.map((format) => (
+                    <option key={format.id} value={format.id}>
+                      {format.name}
+                    </option>
+                  ))}
                 </select>
 
                 <button
@@ -2405,7 +2413,7 @@ export default function App() {
 
               {/* Version Badge */}
               <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                v2.7.0
+                {APP_VERSION}
               </span>
             </div>
 
@@ -2426,7 +2434,7 @@ export default function App() {
               <span>•</span>
               <button onClick={() => setIsChangelogOpen(true)} className="hover:underline font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer flex items-center gap-1">
                 <span>{t.changelog}</span>
-                <span className="text-[10px] font-mono font-bold">(v2.7.0)</span>
+                <span className="text-[10px] font-mono font-bold">({APP_VERSION})</span>
               </button>
             </div>
           </div>
@@ -2464,7 +2472,7 @@ export default function App() {
         isOpen={isChangelogOpen}
         onClose={() => setIsChangelogOpen(false)}
         language={currentLanguage}
-        currentVersion="v2.6.0"
+        currentVersion={APP_VERSION}
       />
 
       {/* Dedicated SQL Studio Modal */}
@@ -2502,9 +2510,7 @@ export default function App() {
         onClose={() => setIsTransformToolsOpen(false)}
         inputText={inputText}
         onApplyResult={(resultText, actionName) => {
-          setInputText(resultText);
-          setOutputText(resultText);
-          showToast(`Applied ${actionName}`);
+          loadJsonIntoEditor(resultText, `Applied ${actionName}`);
         }}
         language={currentLanguage}
       />
@@ -2523,9 +2529,7 @@ export default function App() {
         onClose={() => setIsJqModalOpen(false)}
         inputText={inputText}
         onApplyResult={(resultText, queryStr) => {
-          setInputText(resultText);
-          setOutputText(resultText);
-          showToast(`Applied jq filter (${queryStr})`);
+          loadJsonIntoEditor(resultText, `Applied jq filter (${queryStr})`);
         }}
         language={currentLanguage}
       />
@@ -2536,9 +2540,7 @@ export default function App() {
         onClose={() => setIsPatchModalOpen(false)}
         inputText={inputText}
         onApplyResult={(resultText, actionName) => {
-          setInputText(resultText);
-          setOutputText(resultText);
-          showToast(actionName);
+          loadJsonIntoEditor(resultText, actionName);
         }}
         language={currentLanguage}
       />
@@ -2549,9 +2551,7 @@ export default function App() {
         onClose={() => setIsApiSpecOpen(false)}
         inputText={inputText}
         onApplyJsonToEditor={(extractedJson) => {
-          setInputText(extractedJson);
-          setOutputText(extractedJson);
-          showToast('Extracted JSON payload to main editor');
+          loadJsonIntoEditor(extractedJson, 'Extracted JSON payload to main editor');
         }}
         language={currentLanguage}
       />
@@ -2562,9 +2562,7 @@ export default function App() {
         onClose={() => setIsJwtModalOpen(false)}
         inputText={inputText}
         onApplyPayloadToEditor={(payloadJson) => {
-          setInputText(payloadJson);
-          setOutputText(payloadJson);
-          showToast('Loaded JWT payload into main editor');
+          loadJsonIntoEditor(payloadJson, 'Loaded JWT payload into main editor');
         }}
         language={currentLanguage}
       />
@@ -2589,9 +2587,17 @@ export default function App() {
       <BatchProcessingModal
         isOpen={isBatchModalOpen}
         onClose={() => setIsBatchModalOpen(false)}
-        onApplySingleToEditor={(convertedContent) => {
+        onApplySingleToEditor={(convertedContent, format) => {
+          const restoredFormat = (getFormatAdapter(format)?.id || 'json') as DataFormat;
+          const parsed = getFormatAdapter(restoredFormat)?.parse(convertedContent);
           setInputText(convertedContent);
           setOutputText(convertedContent);
+          setInputFormat(restoredFormat);
+          setOutputLanguage(getOutputLanguage(restoredFormat));
+          setParsedData(parsed?.valid ? parsed.data : null);
+          setIsValid(Boolean(parsed?.valid));
+          setError(parsed?.valid ? null : { message: parsed?.error || `Invalid ${format} output` });
+          setActiveActionTitle(`Batch ${getFormatAdapter(restoredFormat)?.name || restoredFormat}`);
           showToast('Loaded batch output into main editor');
         }}
         language={currentLanguage}
@@ -2602,9 +2608,7 @@ export default function App() {
         isOpen={isUrlFetcherOpen}
         onClose={() => setIsUrlFetcherOpen(false)}
         onApplyJsonToEditor={(fetchedJson) => {
-          setInputText(fetchedJson);
-          setOutputText(fetchedJson);
-          showToast('Loaded fetched API JSON into main editor');
+          loadJsonIntoEditor(fetchedJson, 'Loaded fetched API JSON into main editor');
         }}
         language={currentLanguage}
       />
@@ -2689,4 +2693,3 @@ export default function App() {
     </div>
   );
 }
-

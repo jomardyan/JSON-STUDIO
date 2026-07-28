@@ -1,4 +1,5 @@
 import { ValidationResult, ValidationError, TransformationStats, CsvOptions, XmlOptions, SqlOptions, DataFormat } from '../types';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 /**
  * Automatically detects/deduces the format of an input string.
@@ -237,6 +238,7 @@ export function repairJson(input: string): { repaired: string; fixed: boolean; m
 export function jsonToCsv(jsonObj: any, options?: CsvOptions): string {
   const delimiter = options?.delimiter || ',';
   const includeHeader = options?.header ?? true;
+  const flattenNested = options?.flattenNested ?? true;
 
   if (jsonObj === null || jsonObj === undefined) return '';
 
@@ -259,7 +261,11 @@ export function jsonToCsv(jsonObj: any, options?: CsvOptions): string {
 
   // Flatten nested structures if needed
   const flattenedRecords = records.map((rec) =>
-    typeof rec === 'object' && rec !== null ? flattenObject(rec) : { value: rec }
+    typeof rec === 'object' && rec !== null
+      ? flattenNested
+        ? flattenObject(rec)
+        : { ...rec }
+      : { value: rec }
   );
 
   // Collect all unique keys across all records
@@ -327,20 +333,24 @@ function flattenObject(obj: any, prefix = ''): Record<string, any> {
 export function csvToJson(csvStr: string, options?: CsvOptions): any[] {
   const delimiter = options?.delimiter || detectDelimiter(csvStr);
   const lines = parseCsvLines(csvStr, delimiter);
+  const includeHeader = options?.header ?? true;
 
   if (lines.length === 0) return [];
 
-  const headers = lines[0].map((h) => h.trim());
+  const columnCount = Math.max(...lines.map((line) => line.length));
+  const headers = includeHeader
+    ? lines[0].map((h, index) => h.trim() || `col_${index + 1}`)
+    : Array.from({ length: columnCount }, (_, index) => `col_${index + 1}`);
   const result: any[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = includeHeader ? 1 : 0; i < lines.length; i++) {
     const row = lines[i];
     if (row.length === 1 && row[0].trim() === '') continue; // skip empty line
 
     const obj: Record<string, any> = {};
     headers.forEach((header, colIndex) => {
       const rawVal = row[colIndex] !== undefined ? row[colIndex] : '';
-      obj[header || `col_${colIndex + 1}`] = parsePrimitive(rawVal);
+      obj[header] = parsePrimitive(rawVal);
     });
     result.push(obj);
   }
@@ -1014,57 +1024,25 @@ export function generateJsonSchema(input: string, indent: string | number = 2): 
 export function jsonToYaml(input: string): { result: string; error?: string } {
   try {
     const parsed = JSON.parse(input);
+    return {
+      result: stringifyYaml(parsed, {
+        indent: 2,
+        lineWidth: 0,
+      }).trimEnd(),
+    };
+  } catch (err: any) {
+    return { result: input, error: err.message };
+  }
+}
 
-    function stringifyYaml(val: any, depth = 0): string {
-      const indent = '  '.repeat(depth);
-
-      if (val === null || val === undefined) return 'null';
-      if (typeof val === 'boolean') return val ? 'true' : 'false';
-      if (typeof val === 'number') return String(val);
-      if (typeof val === 'string') {
-        // Quote strings that could be misinterpreted as YAML scalars (booleans, numbers, nulls)
-        if (
-          val.includes('\n') || val.includes(':') || val.includes('#') ||
-          val.includes('"') || val.includes("'") ||
-          /^(true|false|null|yes|no|on|off)$/i.test(val) ||
-          (!isNaN(Number(val)) && val.trim() !== '')
-        ) {
-          return `"${val.replace(/"/g, '\\"')}"`;
-        }
-        return val || '""';
-      }
-
-      if (Array.isArray(val)) {
-        if (val.length === 0) return '[]';
-        return val
-          .map((item) => {
-            if (typeof item === 'object' && item !== null) {
-              const itemYaml = stringifyYaml(item, depth + 1).trimStart();
-              return `${indent}- ${itemYaml}`;
-            }
-            return `${indent}- ${stringifyYaml(item, 0)}`;
-          })
-          .join('\n');
-      }
-
-      if (typeof val === 'object') {
-        const keys = Object.keys(val);
-        if (keys.length === 0) return '{}';
-        return keys
-          .map((key) => {
-            const childVal = val[key];
-            if (typeof childVal === 'object' && childVal !== null) {
-              return `${indent}${key}:\n${stringifyYaml(childVal, depth + 1)}`;
-            }
-            return `${indent}${key}: ${stringifyYaml(childVal, 0)}`;
-          })
-          .join('\n');
-      }
-
-      return String(val);
-    }
-
-    return { result: stringifyYaml(parsed) };
+/**
+ * Parses YAML 1.2 into formatted JSON.
+ */
+export function yamlToJson(input: string, indent: string | number = 2): { result: string; error?: string } {
+  try {
+    const parsed = parseYaml(input);
+    const space = indent === 'tab' ? '\t' : Number(indent) || 2;
+    return { result: JSON.stringify(parsed, null, space) };
   } catch (err: any) {
     return { result: input, error: err.message };
   }
@@ -2011,23 +1989,7 @@ export function convertAnyFormat(
       if (res.error) parseError = res.error;
       else parsed = JSON.parse(res.result);
     } else if (fromFormat === 'yaml') {
-      // Basic YAML / JSON parse
-      try {
-        parsed = JSON.parse(input);
-      } catch {
-        // Simple fallback key-value parse if plain YAML
-        const lines = input.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'));
-        const obj: Record<string, any> = {};
-        lines.forEach((l) => {
-          const idx = l.indexOf(':');
-          if (idx !== -1) {
-            const k = l.slice(0, idx).trim();
-            const v = l.slice(idx + 1).trim();
-            obj[k] = parsePrimitive(v);
-          }
-        });
-        parsed = obj;
-      }
+      parsed = parseYaml(input);
     } else {
       parsed = JSON.parse(input);
     }
@@ -2482,5 +2444,3 @@ export function isChartableData(data: any): boolean {
 
   return false;
 }
-
-

@@ -31,6 +31,14 @@ export const UrlFetcherModal: React.FC<UrlFetcherModalProps> = ({
   const [responseStatus, setResponseStatus] = React.useState<number | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState<boolean>(false);
+  const requestControllerRef = React.useRef<AbortController | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) return;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    setIsLoading(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -52,6 +60,22 @@ export const UrlFetcherModal: React.FC<UrlFetcherModalProps> = ({
   const handleFetch = async () => {
     if (!urlInput || !urlInput.trim()) return;
 
+    let requestUrl: URL;
+    try {
+      requestUrl = new URL(urlInput.trim());
+      if (requestUrl.protocol !== 'https:' && requestUrl.protocol !== 'http:') {
+        throw new Error('Only HTTP and HTTPS endpoints are supported.');
+      }
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Enter a valid HTTP or HTTPS URL.');
+      return;
+    }
+
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+
     setIsLoading(true);
     setErrorMessage(null);
     setResponseStatus(null);
@@ -65,9 +89,10 @@ export const UrlFetcherModal: React.FC<UrlFetcherModalProps> = ({
         }
       });
 
-      const res = await fetch(urlInput.trim(), {
+      const res = await fetch(requestUrl.toString(), {
         method: 'GET',
         headers: headerObj,
+        signal: controller.signal,
       });
 
       setResponseStatus(res.status);
@@ -80,17 +105,29 @@ export const UrlFetcherModal: React.FC<UrlFetcherModalProps> = ({
       const formatted = JSON.stringify(json, null, 2);
       setFetchedData(formatted);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to fetch API endpoint. Ensure CORS is enabled on the server.');
+      setErrorMessage(
+        err?.name === 'AbortError'
+          ? 'Request cancelled or timed out after 30 seconds.'
+          : err.message || 'Failed to fetch API endpoint. Ensure CORS is enabled on the server.'
+      );
     } finally {
-      setIsLoading(false);
+      window.clearTimeout(timeoutId);
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (fetchedData) {
-      navigator.clipboard.writeText(fetchedData);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(fetchedData);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setErrorMessage('Clipboard access was blocked by the browser.');
+      }
     }
   };
 
