@@ -32,6 +32,7 @@ import {
   Command,
   ArrowRight,
   SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { SampleItem, SAMPLE_DATASETS } from '../utils/samples';
 
@@ -542,9 +543,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center pt-16 sm:pt-24 p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+      {/* Backdrop overlay click to close */}
+      <div className="fixed inset-0" onClick={onClose} />
+
       <div
-        className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10"
         onKeyDown={handleKeyDown}
       >
         {/* Search Header */}
@@ -561,9 +565,18 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             }}
             className="w-full bg-transparent text-sm sm:text-base font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-[10px] font-mono font-semibold text-zinc-500 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700">
-            Esc
-          </kbd>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-[10px] font-mono font-semibold text-zinc-500 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700">
+              Esc
+            </kbd>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Close (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Results List */}
