@@ -8,8 +8,12 @@
 
 **JSON Studio Pro** is a high-performance, 100% client-side data formatting, conversion, and developer studio suite. Built for modern engineers, JSON Studio converts, repairs, queries, profiles, and visualizes complex data structures with zero latency and 100% offline privacy.
 
-🌐 **Live Web Application:** [https://json.lolisoft.eu](https://json.lolisoft.eu)  
+🌐 **Live Web Application:** [https://studio.lolisoft.eu](https://studio.lolisoft.eu)  
 📦 **GitHub Repository:** [https://github.com/jomardyan/JSON-STUDIO](https://github.com/jomardyan/JSON-STUDIO)
+
+> [!NOTE]
+> The canonical domain is **`studio.lolisoft.eu`**. The former `json.lolisoft.eu` host should serve a
+> permanent `301` redirect to it so existing search rankings and backlinks are preserved.
 
 ---
 
@@ -143,7 +147,11 @@ JSON-STUDIO/
 │   ├── manifest.json        # Web App Manifest (standalone PWA)
 │   ├── sw.js                # Offline Service Worker (Cache-First)
 │   ├── icon.svg             # Application Icon
-│   └── llms.txt             # Machine-readable documentation for AI agents
+│   ├── og-image.png         # 1200x630 Open Graph / Twitter social card
+│   ├── robots.txt           # Crawler directives (search + AI/LLM bots)
+│   ├── sitemap.xml          # XML sitemap with image extension
+│   ├── llms.txt             # Machine-readable documentation for AI agents
+│   └── llms-full.txt        # Extended AI/LLM crawler documentation
 ├── src/
 │   ├── components/          # React Modals, Toolbar & Studio Components
 │   │   ├── CommandPaletteModal.tsx  # Spotlight Command Palette

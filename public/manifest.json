@@ -1,18 +1,38 @@
 {
-  "name": "JSON Studio Pro",
+  "id": "/",
+  "name": "JSON Studio Pro — Universal Data Converter & Developer Studio",
   "short_name": "JSON Studio",
-  "description": "Universal Multi-Format Data Converter & Developer Studio — 100% Offline Client-Side App",
+  "description": "Free, 100% private client-side JSON formatter, validator, auto-repair tool and universal converter for CSV, XML, YAML, TOML, SQL, TypeScript and more. Works fully offline.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#18181b",
   "theme_color": "#18181b",
   "orientation": "any",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon.svg",
-      "sizes": "192x192 512x512",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "JSON Studio Pro workspace with formatter, converters and developer studios"
     }
   ],
   "categories": [
@@ -20,6 +40,10 @@
     "utilities",
     "productivity"
   ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "prefer_related_applications": false,
   "shortcuts": [
     {
       "name": "Format JSON",

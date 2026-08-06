@@ -138,7 +138,7 @@ import {
   getFormatAdapter,
   listFormatAdapters,
 } from './adapters/formatRegistry';
-import { APP_VERSION } from './config/version';
+import { APP_VERSION, HOMEPAGE_DOMAIN, HOMEPAGE_URL } from './config/version';
 
 const READABLE_FORMATS = listFormatAdapters().filter((adapter) => adapter.readSupport !== 'none');
 const WRITABLE_FORMATS = listFormatAdapters().filter((adapter) => adapter.writeSupport !== 'none');
@@ -2349,7 +2349,7 @@ export default function App() {
                 <span>JSON Studio Pro — Universal Multi-Format Data Converter</span>
               </div>
               <p className="mt-1 text-zinc-500 dark:text-zinc-400 text-xs">
-                Official web app hosted at <a href="https://json.lolisoft.eu" className="text-indigo-600 dark:text-indigo-400 font-mono hover:underline font-semibold">json.lolisoft.eu</a> — Ultra-fast, private client-side format transformation.
+                Official web app hosted at <a href={HOMEPAGE_URL} className="text-indigo-600 dark:text-indigo-400 font-mono hover:underline font-semibold">{HOMEPAGE_DOMAIN}</a> — Ultra-fast, private client-side format transformation.
               </p>
             </div>
 
@@ -2364,7 +2364,7 @@ export default function App() {
           </div>
 
           {/* Formats Grid */}
-          <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-xs">
             <div>
               <h4 className="font-semibold text-zinc-900 dark:text-zinc-200 mb-2 font-mono uppercase tracking-wider text-[11px] text-indigo-500">
                 {t.coreFormats}
@@ -2419,34 +2419,34 @@ export default function App() {
           </div>
 
           {/* Developer FAQs for SEO & Search Crawlers */}
-          <div className="hidden sm:block border-t border-zinc-200 dark:border-zinc-800 pt-6 space-y-4">
+          <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6 space-y-4">
             <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-500" />
               {t.faqTitle}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <p className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
                   {t.faq1Q}
-                </p>
+                </h4>
                 <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {t.faq1A}
                 </p>
               </div>
 
               <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <p className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
                   {t.faq2Q}
-                </p>
+                </h4>
                 <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {t.faq2A}
                 </p>
               </div>
 
               <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <p className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
                   {t.faq3Q}
-                </p>
+                </h4>
                 <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {t.faq3A}
                 </p>
@@ -2456,7 +2456,7 @@ export default function App() {
 
           <div className="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500 md:flex-row dark:border-zinc-800 dark:text-zinc-400">
             <div className="flex flex-wrap items-center gap-2">
-              <span>© {new Date().getFullYear()} <a href="https://json.lolisoft.eu" className="hover:underline font-mono font-medium text-zinc-700 dark:text-zinc-300">json.lolisoft.eu</a>. {t.allRightsReserved}</span>
+              <span>© {new Date().getFullYear()} <a href={HOMEPAGE_URL} className="hover:underline font-mono font-medium text-zinc-700 dark:text-zinc-300">{HOMEPAGE_DOMAIN}</a>. {t.allRightsReserved}</span>
               
               {/* Open Source Project Badge */}
               <a

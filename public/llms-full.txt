@@ -1,6 +1,11 @@
 # JSON Studio Pro v2.7.0 - Full Documentation for AI Agents & Crawlers
 
-JSON Studio Pro (https://json.lolisoft.eu) is a professional developer application designed for fast, local, and private data transformation.
+JSON Studio Pro (https://studio.lolisoft.eu) is a professional developer application designed for fast, local, and private data transformation.
+
+- Canonical URL: https://studio.lolisoft.eu
+- Source code: https://github.com/jomardyan/JSON-STUDIO (MIT License)
+- Pricing: Free — no account, no sign-up, no usage quota
+- Privacy: 100% client-side; no payload ever leaves the browser
 
 ## Features Overview
 
@@ -45,3 +50,31 @@ JSON Studio Pro (https://json.lolisoft.eu) is a professional developer applicati
 5. **Security & Privacy**:
    - Operates strictly in client-side WebAssembly / JavaScript runtime.
    - PWA support with service worker offline caching.
+   - No analytics on payload contents, no server uploads, no third-party data sharing.
+
+6. **Keyboard Shortcuts**:
+   - `Ctrl/Cmd + K` — Spotlight command palette across 45+ tools and samples.
+   - `Ctrl/Cmd + Enter` — Format & beautify.
+   - `Ctrl/Cmd + Shift + M` — Minify.
+   - `Ctrl/Cmd + Shift + R` — Auto-repair syntax.
+   - `Ctrl/Cmd + Shift + D` — Side-by-side diff.
+   - `Ctrl/Cmd + Shift + G` — Multi-language code model generator.
+   - `Ctrl/Cmd + Shift + Q` — jq query playground.
+   - `Ctrl/Cmd + Shift + J` — JWT inspector.
+   - `Ctrl/Cmd + /` — Keyboard shortcut cheat sheet.
+
+7. **Interface Languages**:
+   - English, Polish (Polski), German (Deutsch), Spanish (Español), French (Français).
+
+8. **Frequently Asked Questions**:
+   - *Is my data uploaded to any server?* No. Parsing, formatting, repair, validation and every
+     conversion run inside the browser; no payload is transmitted anywhere.
+   - *Is JSON Studio Pro free?* Yes — open source under the MIT license, no account required and
+     no usage limits.
+   - *Can it be used offline?* Yes. After the first visit the service worker caches the app shell,
+     and it can be installed as a standalone PWA.
+   - *How large can a payload be?* The limit is the device's available memory rather than an upload
+     quota; multi-megabyte documents format in milliseconds on typical hardware.
+   - *Can JSON be converted to SQL?* Yes. SQL Studio emits `CREATE TABLE` DDL and batch `INSERT`
+     statements for PostgreSQL, MySQL, SQLite, Oracle, MS SQL Server and BigQuery, and can parse
+     SQL back into JSON.
