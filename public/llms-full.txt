@@ -18,10 +18,10 @@ JSON Studio Pro (https://studio.lolisoft.eu) is a professional developer applica
    - Normalizes Python literals (`True` -> `true`, `False` -> `false`, `None` -> `null`).
 
 2. **Developer Studios Suite**:
-   - **SQL Studio**: SQL Dialect DDL schema generator (PostgreSQL, MySQL, SQLite, Oracle, BigQuery) & batch INSERT converter.
+   - **SQL Studio**: SQL dialect DDL schema generator (MySQL/MariaDB, PostgreSQL, SQLite, MS SQL Server) & batch INSERT converter.
    - **JSON Side-by-Side Diff**: Compare two JSON inputs with side-by-side highlighting and delta inspection.
    - **Case / Mask / Query**: CamelCase/snake_case/kebab-case converter, PII data masking (emails, credit cards, phones), and JSONPath query evaluator.
-   - **Multi-Lang Code Models**: Instant generation of typed code models for TypeScript, Python Pydantic, Go, Rust, C#, Swift, and Dart.
+   - **Multi-Lang Code Models**: Instant generation of typed code models for TypeScript, Python Pydantic, Go, Rust, C#, Java, Kotlin, Swift, and Dart.
    - **jq Query Playground**: UNIX jq syntax filter playground.
    - **RFC 6902 Patch / RFC 7386 Merge Patch**: Generate patch diffs or apply JSON patch objects.
    - **API Specs**: Convert JSON payloads to OpenAPI 3.0 YAML, cURL commands, or GraphQL schemas.
@@ -48,20 +48,20 @@ JSON Studio Pro (https://studio.lolisoft.eu) is a professional developer applica
    - Automatically detects input language / data format (JSON, XML, CSV, YAML, TOML, SQL, Markdown, NDJSON, URL Query, Properties) upon typing or pasting.
 
 5. **Security & Privacy**:
-   - Operates strictly in client-side WebAssembly / JavaScript runtime.
+   - Operates strictly in the browser's client-side JavaScript runtime; heavy conversions run in a
+     Web Worker so the editor stays responsive.
    - PWA support with service worker offline caching.
    - No analytics on payload contents, no server uploads, no third-party data sharing.
 
 6. **Keyboard Shortcuts**:
-   - `Ctrl/Cmd + K` — Spotlight command palette across 45+ tools and samples.
+   - `Ctrl/Cmd + K` or `Ctrl/Cmd + P` — Spotlight command palette across every tool and sample.
    - `Ctrl/Cmd + Enter` — Format & beautify.
    - `Ctrl/Cmd + Shift + M` — Minify.
    - `Ctrl/Cmd + Shift + R` — Auto-repair syntax.
-   - `Ctrl/Cmd + Shift + D` — Side-by-side diff.
-   - `Ctrl/Cmd + Shift + G` — Multi-language code model generator.
-   - `Ctrl/Cmd + Shift + Q` — jq query playground.
-   - `Ctrl/Cmd + Shift + J` — JWT inspector.
+   - `Ctrl/Cmd + Shift + C` — Copy output to clipboard.
+   - `Ctrl/Cmd + Shift + X` — Move output into input.
    - `Ctrl/Cmd + /` — Keyboard shortcut cheat sheet.
+   - `Esc` — Close the open dialog.
 
 7. **Interface Languages**:
    - English, Polish (Polski), German (Deutsch), Spanish (Español), French (Français).
@@ -76,5 +76,5 @@ JSON Studio Pro (https://studio.lolisoft.eu) is a professional developer applica
    - *How large can a payload be?* The limit is the device's available memory rather than an upload
      quota; multi-megabyte documents format in milliseconds on typical hardware.
    - *Can JSON be converted to SQL?* Yes. SQL Studio emits `CREATE TABLE` DDL and batch `INSERT`
-     statements for PostgreSQL, MySQL, SQLite, Oracle, MS SQL Server and BigQuery, and can parse
-     SQL back into JSON.
+     statements for MySQL/MariaDB, PostgreSQL, SQLite and MS SQL Server, and can parse SQL back
+     into JSON.

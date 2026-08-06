@@ -11,10 +11,10 @@ JSON Studio Pro is a secure, sub-millisecond web application for formatting, rep
 - **Full documentation**: https://studio.lolisoft.eu/llms-full.txt
 
 ## Developer Studios & Tools
-- **SQL Studio**: Generate DDL CREATE TABLE and batch INSERT statements across Dialects (PostgreSQL, MySQL, SQLite, Oracle, MS SQL, BigQuery) or convert SQL back to JSON.
+- **SQL Studio**: Generate DDL CREATE TABLE and batch INSERT statements across dialects (MySQL/MariaDB, PostgreSQL, SQLite, MS SQL Server) or convert SQL back to JSON.
 - **JSON Diff**: Side-by-side visual JSON comparator with inline diff highlighting and delta tree views.
 - **Case / Mask / Query**: Case transformer (camelCase, snake_case), PII sensitive data masker, and JSONPath evaluator.
-- **Multi-Lang Code Generator**: Convert JSON to typed models for TypeScript, Python (Pydantic), Go, Rust, C#, Swift, and Dart.
+- **Multi-Lang Code Generator**: Convert JSON to typed models for TypeScript, Python (Pydantic), Go, Rust, C#, Java, Kotlin, Swift, and Dart.
 - **jq Query Playground**: Run custom jq filters and transformations directly on JSON payloads.
 - **JSON Patch & Merge Patch**: Generate RFC 6902 JSON Patches or RFC 7386 Merge Patches.
 - **API Spec Generators**: Convert JSON to OpenAPI 3.0 YAML/JSON, cURL requests, or GraphQL Schemas.
@@ -33,6 +33,10 @@ JSON Studio Pro is a secure, sub-millisecond web application for formatting, rep
 - **TypeScript**: JSON -> TypeScript Interface definitions
 - **Python / PHP**: JSON -> Python Dict / PHP Array syntax
 - **NDJSON**: JSON <-> NDJSON (JSON Lines)
+- **JSON5 / JSONC**: JSON <-> JSON5 and commented JSON
+- **INI**: JSON <-> INI configuration sections
+- **HCL / Terraform**: JSON <-> HCL configuration blocks
+- **URL Query**: JSON <-> URL-encoded query parameters
 - **.env / Properties**: JSON <-> Key-Value properties
 
 ## Key Guarantees & Features

@@ -142,7 +142,7 @@
             "jq Syntax Query Playground",
             "PII Masking & JSONPath Evaluator",
             "RFC 6902 Patch & RFC 7386 Merge Patch",
-            "Multi-Lang Code Generator (TypeScript, Go, Rust, Python, C#, Swift, Dart)",
+            "Multi-Lang Code Generator (TypeScript, Go, Rust, Python, C#, Java, Kotlin, Swift, Dart)",
             "OpenAPI 3.0 / cURL / GraphQL Spec Generator",
             "JWT Inspector & Claims Decoder",
             "Interactive ER Diagram & Object Graph",
@@ -239,7 +239,7 @@
               "name": "Can I convert JSON to SQL INSERT statements?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. The built-in SQL Studio generates CREATE TABLE DDL and batch INSERT statements for PostgreSQL, MySQL, SQLite, Oracle, MS SQL Server and BigQuery, and can also convert SQL back into JSON."
+                "text": "Yes. The built-in SQL Studio generates CREATE TABLE DDL and batch INSERT statements for MySQL/MariaDB, PostgreSQL, SQLite and MS SQL Server, and can also convert SQL back into JSON."
               }
             }
           ]
@@ -261,18 +261,19 @@
         </p>
         <h2>Developer studios</h2>
         <ul>
-          <li>SQL Studio — CREATE TABLE DDL and batch INSERT generation for PostgreSQL, MySQL, SQLite, Oracle, MS SQL and BigQuery</li>
+          <li>SQL Studio — CREATE TABLE DDL and batch INSERT generation for MySQL/MariaDB, PostgreSQL, SQLite and MS SQL Server</li>
           <li>Side-by-side JSON diff and comparator with delta highlighting</li>
           <li>jq query playground, JSONPath evaluator and PII masking</li>
           <li>RFC 6902 JSON Patch and RFC 7386 Merge Patch</li>
           <li>OpenAPI 3.0, cURL and GraphQL spec generators</li>
           <li>JWT inspector, ER diagram, object graph and payload profiler</li>
-          <li>Code model generation for TypeScript, Python, Go, Rust, C#, Swift and Dart</li>
+          <li>Code model generation for TypeScript, Python, Go, Rust, C#, Java, Kotlin, Swift and Dart</li>
         </ul>
         <h2>Supported conversions</h2>
         <p>
-          JSON ⇄ XML, CSV, TSV, YAML, TOML, SQL, Markdown, HTML, NDJSON, URL query strings and
-          .env / Java properties, plus JSON → TypeScript interfaces, Python dicts and PHP arrays.
+          JSON ⇄ XML, CSV, TSV, YAML, TOML, SQL, Markdown, HTML, NDJSON, JSON5 / JSONC, INI,
+          HCL / Terraform, URL query strings and .env / Java properties, plus JSON → TypeScript
+          interfaces, Python dicts and PHP arrays.
         </p>
         <h2>Frequently asked questions</h2>
         <h3>Is my data uploaded to any server?</h3>

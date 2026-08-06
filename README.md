@@ -1,179 +1,171 @@
-# JSON Studio Pro v2.7.0 🚀
+# JSON Studio Pro
 
-[![Version](https://img.shields.io/badge/version-2.7.0-indigo.svg)](package.json)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PWA Ready](https://img.shields.io/badge/PWA-100%25%20Offline-emerald.svg)](public/sw.js)
-[![Client-Side Privacy](https://img.shields.io/badge/Privacy-100%25%20Client--Side-purple.svg)](#-privacy--security-guarantee)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#-getting-started)
+[![CI](https://github.com/jomardyan/JSON-STUDIO/actions/workflows/ci.yml/badge.svg)](https://github.com/jomardyan/JSON-STUDIO/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**JSON Studio Pro** is a high-performance, 100% client-side data formatting, conversion, and developer studio suite. Built for modern engineers, JSON Studio converts, repairs, queries, profiles, and visualizes complex data structures with zero latency and 100% offline privacy.
+A browser-based workspace for formatting, validating, repairing and converting structured data.
+It handles 18 text formats, generates SQL and typed code models from JSON payloads, and ships a
+set of inspection tools (diff, jq, JSONPath, JWT, profiler) around a single editor.
 
-🌐 **Live Web Application:** [https://studio.lolisoft.eu](https://studio.lolisoft.eu)  
-📦 **GitHub Repository:** [https://github.com/jomardyan/JSON-STUDIO](https://github.com/jomardyan/JSON-STUDIO)
+Everything runs locally in the browser. There is no backend, no account, and no request that
+carries your payload off the machine.
 
-> [!NOTE]
-> The canonical domain is **`studio.lolisoft.eu`**. The former `json.lolisoft.eu` host should serve a
-> permanent `301` redirect to it so existing search rankings and backlinks are preserved.
+**Live app: [studio.lolisoft.eu](https://studio.lolisoft.eu)**
 
----
+## Formats
 
-## ✨ Key Features
+Conversion runs through a shared adapter registry ([`src/adapters/formatRegistry.ts`](src/adapters/formatRegistry.ts))
+that declares how completely each format can be read and written. Three formats are code
+targets and cannot be parsed back into JSON; the rest round-trip within the documented limits
+of their parser.
 
-### ⚡ 1. Spotlight Command Palette (`Ctrl + K` / `Cmd + K`)
-- Instant fuzzy search across **45+ tools, formatters, converters, studios, and samples**.
-- Full keyboard arrow key navigation (`Up` / `Down`), `Enter` execution, and `Esc` dismissal.
+| Format | Extensions | Parse to JSON | Generate from JSON |
+| :--- | :--- | :---: | :---: |
+| JSON | `.json` | Full | Full |
+| NDJSON / JSON Lines | `.ndjson` `.jsonl` | Full | Full |
+| URL query parameters | — | Full | Partial |
+| JSON5 / JSONC | `.json5` `.jsonc` | Partial | Partial |
+| YAML | `.yaml` `.yml` | Partial | Partial |
+| TOML | `.toml` | Partial | Partial |
+| XML | `.xml` | Partial | Partial |
+| CSV / TSV | `.csv` | Partial | Partial |
+| SQL | `.sql` | Partial | Partial |
+| HCL / Terraform | `.hcl` `.tf` | Partial | Partial |
+| INI | `.ini` `.cfg` | Partial | Partial |
+| Java properties | `.properties` | Partial | Partial |
+| Dotenv | `.env` | Partial | Partial |
+| Markdown table | `.md` | Partial | Partial |
+| HTML table | `.html` | Partial | Partial |
+| TypeScript interface | `.ts` | — | Partial |
+| Python dict | `.py` | — | Partial |
+| PHP array | `.php` | — | Partial |
 
-### 🔄 2. Universal Multi-Format Converter
-Instant bidirectional conversion between:
-- **JSON** ➔ **CSV / Excel**
-- **JSON** ➔ **XML Document** (Custom root tags & attributes)
-- **JSON** ➔ **YAML Manifest** (Kubernetes & Docker config ready)
-- **JSON** ➔ **SQL Script** (`CREATE TABLE` DDL & batch `INSERT INTO` queries)
-- **JSON** ➔ **TOML Configuration**
-- **JSON** ➔ **HTML <table> Markup**
-- **JSON** ➔ **Markdown Table** (GitHub Flavored Markdown)
-- **JSON** ➔ **TypeScript Interfaces** & Data Models
-- **JSON** ➔ **NDJSON / JSON Lines**
-- **JSON** ➔ **Python Dict** & **PHP Array** Literals
-- **JSON** ➔ **URL Query Parameters** & **Properties / .env**
+The registry also drives the compatibility matrix in the UI, which flags a conversion as
+lossy before you run it — for example CSV, which flattens nested objects and drops type
+information.
 
-### 🛠️ 3. Integrated Suite of 15+ Developer Studios
+## Tools
 
-| Developer Studio | Description | Shortcut |
-| :--- | :--- | :---: |
-| **SQL Studio & Generator** | Custom table naming, batch insert sizing, and multi-dialect SQL generation (MySQL, PostgreSQL, SQLite, MS SQL) | — |
-| **Side-by-Side Visual Diff** | Compare two JSON objects with side-by-side delta highlighting and patch export | `Ctrl+Shift+D` |
-| **Case & PII Transformer** | Convert key casing (camelCase, snake_case, kebab-case), mask PII fields, run JSONPath queries | — |
-| **Multi-Lang Code Generator** | Generate production models in TypeScript, Python, Go, Rust, C#, Java, Swift, Dart | `Ctrl+Shift+G` |
-| **jq Query Playground** | Execute UNIX `jq` expressions (`.users[] \| select(.age > 30)`) on live data | `Ctrl+Shift+Q` |
-| **JSON Patch (RFC 6902/7386)** | Generate and apply RFC 6902 JSON Patch & RFC 7386 Merge Patch operations | — |
-| **OpenAPI / cURL / GraphQL** | Build OpenAPI 3.0 specs, parse cURL commands, and infer GraphQL schemas | — |
-| **JWT Inspector & Claims** | Decode JWT header, payload claims, expiration timestamps, and signature verification | `Ctrl+Shift+J` |
-| **Interactive ER & Object Graph** | Explore JSON node hierarchies, entity relationships, and schemas visually | — |
-| **Payload Profiler & Metrics** | Type distribution, max nesting depth, payload size breakdown, and top array metrics | — |
-| **Multi-File Batch Processor** | Drag & drop batch process and convert multiple files in bulk | — |
-| **URL & API Endpoint Fetcher** | Fetch JSON payloads directly from remote HTTP API endpoints | — |
-| **Visual Analytics & Charts** | Render interactive Bar, Line, Area, and Pie charts directly from JSON datasets | — |
-| **AI / LLM Spec Generator** | Generate OpenAI function declarations, Gemini tool specs, Zod schemas, and TypeBox types | — |
+| Tool | What it does |
+| :--- | :--- |
+| SQL Studio | `CREATE TABLE` DDL and batched `INSERT` statements for MySQL/MariaDB, PostgreSQL, SQLite and MS SQL Server, with per-dialect identifier quoting and type inference |
+| Side-by-side diff | Compares two documents with delta highlighting and patch export |
+| Code generator | Typed models for TypeScript, Python, Go, Rust, C#, Java, Kotlin, Swift and Dart |
+| jq playground | Runs jq expressions against the current payload |
+| Transform tools | Key casing (camel, snake, kebab), PII masking and JSONPath queries |
+| JSON Patch | Generates and applies RFC 6902 patches and RFC 7386 merge patches |
+| API specs | OpenAPI 3.0 documents, cURL commands and GraphQL schemas inferred from a payload |
+| LLM tool specs | OpenAI function declarations, Gemini tool specs, Zod schemas and TypeBox types |
+| JWT inspector | Decodes header and claims, and reports expiry |
+| Object graph | Node view of nesting and entity relationships |
+| Payload profiler | Type distribution, nesting depth, key counts and size breakdown |
+| Charts | Bar, line, area and pie charts over array data |
+| Batch processor | Converts multiple dropped files in one pass |
+| URL fetcher | Loads a payload from an HTTP endpoint |
 
-### 🔧 4. Intelligent Syntax Auto-Repair Engine
-Fixes invalid JSON syntax automatically:
-- Unquoted object keys (`{name: "John"}` ➔ `{"name": "John"}`)
-- Single-quoted strings (`{'role': 'admin'}` ➔ `{"role": "admin"}`)
-- C-style inline & block comments (`// comment` and `/* block */`)
-- Trailing commas in arrays and objects (`[1, 2, 3,]`)
-- Python booleans & nulls (`True`, `False`, `None`)
+A command palette (`Ctrl`/`Cmd` + `K`) searches every tool, converter and bundled sample.
+Large conversions are handed to a web worker ([`src/workers/conversionWorker.ts`](src/workers/conversionWorker.ts))
+so the editor stays responsive.
 
-### 📡 5. 100% Offline Mode (PWA Service Worker)
-- **Zero Internet Connection Required after first load:** The service worker caches the application shell and runtime assets for later offline sessions.
-- **Standalone PWA Installation:** Install as a native desktop or mobile app.
-- **Network Status Detector:** Real-time online/offline indicator badge.
+### Syntax repair
 
----
+The repair pass ([`src/utils/jsonUtils.ts`](src/utils/jsonUtils.ts)) accepts malformed input and fixes:
 
-## ⌨️ Keyboard Shortcuts
+- unquoted object keys — `{name: "John"}` becomes `{"name": "John"}`
+- single-quoted strings — `{'role': 'admin'}` becomes `{"role": "admin"}`
+- trailing commas in objects and arrays
+- `//` line comments and `/* */` block comments
+- Python literals — `True`, `False` and `None`
 
-| Action | Shortcut (Windows / Linux) | Shortcut (macOS) |
-| :--- | :---: | :---: |
-| **Command Palette** | `Ctrl + K` or `Ctrl + P` | `Cmd + K` or `Cmd + P` |
-| **Format & Beautify** | `Ctrl + Enter` | `Cmd + Enter` |
-| **Minify JSON** | `Ctrl + Shift + M` | `Cmd + Shift + M` |
-| **Auto-Repair Syntax** | `Ctrl + Shift + R` | `Cmd + Shift + R` |
-| **Copy Output** | `Ctrl + Shift + C` | `Cmd + Shift + C` |
-| **Swap Output ➔ Input** | `Ctrl + Shift + X` | `Cmd + Shift + X` |
-| **Keyboard Shortcuts Cheat Sheet** | `Ctrl + /` | `Cmd + /` |
+## Keyboard shortcuts
 
----
+`Cmd` replaces `Ctrl` on macOS.
 
-## 🔒 Privacy & Security Guarantee
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl + K` / `Ctrl + P` | Command palette |
+| `Ctrl + Enter` | Format and beautify |
+| `Ctrl + Shift + M` | Minify |
+| `Ctrl + Shift + R` | Repair syntax |
+| `Ctrl + Shift + C` | Copy output |
+| `Ctrl + Shift + X` | Move output into input |
+| `Ctrl + /` | Shortcut reference |
+| `Esc` | Close the open dialog |
 
-> [!IMPORTANT]
-> **Your data never leaves your computer.**
-> All formatting, validation, repair, conversion, and code generation operations are executed **100% inside your browser's local memory**. JSON Studio Pro performs **zero server uploads**, zero analytics tracking of your payloads, and stores nothing on external servers.
+## Privacy
 
----
+Parsing, conversion, code generation and every other operation happen in the browser. The app
+sends no payload to a server, includes no analytics, and stores nothing remotely. Preferences
+and history are kept in `localStorage` on the device and can be cleared from Settings.
 
-## 🚀 Getting Started (Local Development)
+The one operation that leaves the browser is the URL fetcher, which requests the endpoint you
+enter.
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) v18.0.0 or higher
-- [npm](https://www.npmjs.com/) v9.0.0 or higher
+## Getting started
 
-### Installation & Execution
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/jomardyan/JSON-STUDIO.git
-   cd JSON-STUDIO
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Start the local development server:**
-   ```bash
-   npm run dev
-   ```
-   Open `http://localhost:3000` in your browser.
-
-4. **Build for production:**
-   ```bash
-   npm run build
-   ```
-
-### Cross-Platform Makefile Support (Windows & Linux)
-JSON Studio Pro includes cross-platform build automation for both Linux (`make`) and Windows PowerShell/CMD (`make.bat`, `make.ps1`):
+Requires Node.js 20 or newer. CI builds against Node 20, and the Docker image is based on
+`node:20-alpine`.
 
 ```bash
-# Start development server
-make dev
-
-# Build production bundle
-make build
-
-# Clean build artifacts
-make clean
+git clone https://github.com/jomardyan/JSON-STUDIO.git
+cd JSON-STUDIO
+npm install
+npm run dev
 ```
 
----
+The dev server listens on [http://localhost:3000](http://localhost:3000).
 
-## 📁 Repository Architecture
+| Script | Purpose |
+| :--- | :--- |
+| `npm run dev` | Vite dev server on port 3000 |
+| `npm run build` | Production bundle into `dist/` |
+| `npm run preview` | Serve the built bundle |
+| `npm run lint` | TypeScript type check (`tsc --noEmit`) |
+| `npm test` | Vitest unit tests |
+| `npm run test:e2e` | Playwright UI audit |
+| `npm run clean` | Remove build artifacts and caches |
+
+`make` wraps the same commands and works from CMD, PowerShell, Git Bash, macOS and Linux
+(`make help` lists the targets). `make check` runs the type check and build together.
+
+### Docker
+
+```bash
+make docker-build
+make docker-run
+```
+
+The multi-stage [Dockerfile](Dockerfile) builds the bundle and serves `dist/` on port 3000.
+
+### Deployment
+
+The canonical host is `studio.lolisoft.eu`. The former `json.lolisoft.eu` host should return a
+permanent redirect to it so existing links and search rankings carry over.
+
+## Project structure
 
 ```text
-JSON-STUDIO/
-├── public/                  # PWA Manifest, Service Worker, Sitemaps & Icons
-│   ├── manifest.json        # Web App Manifest (standalone PWA)
-│   ├── sw.js                # Offline Service Worker (Cache-First)
-│   ├── icon.svg             # Application Icon
-│   ├── og-image.png         # 1200x630 Open Graph / Twitter social card
-│   ├── robots.txt           # Crawler directives (search + AI/LLM bots)
-│   ├── sitemap.xml          # XML sitemap with image extension
-│   ├── llms.txt             # Machine-readable documentation for AI agents
-│   └── llms-full.txt        # Extended AI/LLM crawler documentation
-├── src/
-│   ├── components/          # React Modals, Toolbar & Studio Components
-│   │   ├── CommandPaletteModal.tsx  # Spotlight Command Palette
-│   │   ├── Header.tsx               # Sticky Navbar & Tools Menu
-│   │   ├── SqlConverterModal.tsx    # SQL Studio & DDL Generator
-│   │   ├── JsonDiffModal.tsx        # Side-by-Side Visual Diff
-│   │   ├── JsonChartsModal.tsx      # Visual Analytics & Charts Studio
-│   │   └── ...                      # 15+ Modal Studio Components
-│   ├── utils/               # Core Parsing & Conversion Engines
-│   │   ├── jsonUtils.ts             # Formatters, Minifiers & Auto-Repair Engine
-│   │   ├── formatRegistry.ts        # Shared 18-format adapter registry
-│   │   ├── samples.ts               # 21 Built-in Sample Datasets
-│   │   └── i18n.ts                  # Multi-language translation engine
-│   ├── App.tsx              # Main Workspace Component
-│   ├── index.css            # TailwindCSS & Custom Glassmorphic Design System
-│   └── main.tsx             # Application Entry Point
-├── package.json             # Dependencies & Build Scripts
-└── vite.config.ts           # Vite Bundler Configuration
+src/
+├── adapters/         Format registry and codecs shared by every converter
+├── components/       Editor chrome and the tool dialogs
+├── config/           Version and URL constants
+├── utils/            Parsing, repair, profiling and generator engines
+├── workers/          Off-main-thread conversion worker
+├── App.tsx           Workspace composition and state
+└── main.tsx          Entry point
+public/               PWA manifest, service worker, icons and crawler files
 ```
 
----
+The app is installable as a PWA. After the first visit the service worker
+([`public/sw.js`](public/sw.js)) serves the shell from cache, so the tools keep working offline.
+The interface is available in English, Polish, German, Spanish and French.
 
-## 📄 License
+## Contributing
 
-This project is open-source software licensed under the [MIT License](LICENSE).
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Run `npm run lint` and
+`npm test` before opening a pull request; CI runs both plus a production build.
+
+## License
+
+[MIT](LICENSE)
