@@ -75,9 +75,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      const previousFocus = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => { clearTimeout(timer); previousFocus?.focus(); };
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) listRef.current?.querySelector(`[data-command-index="${selectedIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [isOpen, selectedIndex, query]);
 
   if (!isOpen) return null;
 
@@ -524,7 +530,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const close = e.currentTarget.querySelector<HTMLButtonElement>('[data-close-palette]');
+      if (document.activeElement === inputRef.current) close?.focus();
+      else inputRef.current?.focus();
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev + 1) % Math.max(1, filteredCommands.length));
     } else if (e.key === 'ArrowUp') {
@@ -548,6 +559,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       <div className="fixed inset-0" onClick={onClose} />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10"
         onKeyDown={handleKeyDown}
       >
@@ -556,6 +570,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           <Search className="w-5 h-5 text-indigo-500 shrink-0" />
           <input
             ref={inputRef}
+            role="combobox"
+            aria-label="Search commands"
+            aria-expanded="true"
+            aria-autocomplete="list"
+            aria-controls="command-results"
+            aria-activedescendant={filteredCommands[selectedIndex] ? `command-${filteredCommands[selectedIndex].id}` : undefined}
             type="text"
             placeholder="Type a command, feature, converter, or sample name..."
             value={query}
@@ -570,6 +590,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               Esc
             </kbd>
             <button
+              data-close-palette
+              aria-label="Close command palette"
               onClick={onClose}
               className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Close (Esc)"
@@ -580,7 +602,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         </div>
 
         {/* Results List */}
-        <div ref={listRef} className="p-2 space-y-1 overflow-y-auto max-h-[60vh]">
+        <div ref={listRef} id="command-results" role="listbox" aria-label="Commands" className="p-2 space-y-1 overflow-y-auto max-h-[60vh]">
           {filteredCommands.length === 0 ? (
             <div className="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
               No matching commands or features found for &quot;{query}&quot;
@@ -591,6 +613,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               return (
                 <button
                   key={cmd.id}
+                  id={`command-${cmd.id}`}
+                  data-command-index={index}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={-1}
                   onClick={() => {
                     cmd.action();
                     onClose();
@@ -609,7 +636,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                     <div className="min-w-0">
                       <div className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         <span className="truncate">{cmd.title}</span>
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 shrink-0">
+                        <span className="hidden sm:inline text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 shrink-0">
                           {cmd.category}
                         </span>
                       </div>
@@ -621,7 +648,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     {cmd.shortcut && (
-                      <kbd className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[10px] border border-zinc-200 dark:border-zinc-700">
+                      <kbd className="hidden sm:inline px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono text-[10px] border border-zinc-200 dark:border-zinc-700">
                         {cmd.shortcut}
                       </kbd>
                     )}
@@ -640,7 +667,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             <span>↵ Select</span>
             <span>Esc Dismiss</span>
           </span>
-          <span className="flex items-center gap-1">
+          <span className="hidden sm:flex items-center gap-1">
             <Command className="w-3 h-3 text-indigo-500" /> JSON Studio Command Palette
           </span>
         </div>

@@ -14,6 +14,7 @@ import {
   Sparkles,
   ArrowRightLeft,
   Maximize2,
+  Minimize2,
   Table as TableIcon,
   FolderOpen,
   ClipboardCheck,
@@ -174,6 +175,11 @@ export default function App() {
 
   // Output state
   const [outputText, setOutputText] = React.useState<string>('');
+  const [outputFormat, setOutputFormat] = React.useState<DataFormat | 'text'>('json');
+  const [lastProcessedFormat, setLastProcessedFormat] = React.useState<DataFormat>('json');
+  const [isFocusMode, setIsFocusMode] = React.useState(false);
+  const [isInputFocused, setIsInputFocused] = React.useState(false);
+  const [outputHasData, setOutputHasData] = React.useState(false);
   const [outputLanguage, setOutputLanguage] = React.useState<'json' | 'xml' | 'csv' | 'text'>('json');
   const [outputViewMode, setOutputViewMode] = React.useState<OutputViewMode>('code');
   const [parsedData, setParsedData] = React.useState<any>(null);
@@ -242,6 +248,12 @@ export default function App() {
   // Conversion Matrix Studio state
   const [isMatrixModalOpen, setIsMatrixModalOpen] = React.useState<boolean>(false);
 
+  const isWorkspaceOverlayOpen = [isCommandPaletteOpen, isShortcutsOpen, isHistoryOpen,
+    isSettingsOpen, isChangelogOpen, isSqlModalOpen, isDiffModalOpen, isTransformToolsOpen,
+    isCodeGeneratorOpen, isJqModalOpen, isPatchModalOpen, isApiSpecOpen, isJwtModalOpen,
+    isObjectGraphOpen, isProfilerOpen, isBatchModalOpen, isUrlFetcherOpen, isChartsOpen,
+    isLlmSpecOpen, isMatrixModalOpen].some(Boolean);
+
   // Toast feedback
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isCopied, setIsCopied] = React.useState<boolean>(false);
@@ -303,6 +315,8 @@ export default function App() {
     (fromFmt: DataFormat, toFmt: DataFormat) => {
       if (!inputText.trim()) {
         setOutputText('');
+        setOutputHasData(false);
+        setOutputViewMode('code');
         setParsedData(null);
         setIsValid(true);
         setError(null);
@@ -344,6 +358,10 @@ export default function App() {
 
       setOutputText(result);
       setOutputLanguage(lang);
+      setOutputFormat(toFmt);
+      setLastProcessedFormat(fromFmt);
+      setOutputHasData(conversion.valid);
+      setOutputViewMode('code');
       setActiveActionTitle(title);
       setLastProcessedInput(inputText);
 
@@ -354,7 +372,7 @@ export default function App() {
       } else {
         setIsValid(true);
         setError(null);
-        setParsedData(parsed || null);
+        setParsedData(parsed ?? null);
 
         saveHistoryItem({
           title,
@@ -417,10 +435,13 @@ export default function App() {
     }
   }, []);
 
-  const showToast = (msg: string) => {
+  const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+  const showToast = React.useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
+    toastTimer.current = setTimeout(() => setToastMessage(null), 3000);
+  }, []);
 
   // Perform format / minify / repair / convert / utility operations
   const handleFormat = React.useCallback(
@@ -457,6 +478,15 @@ export default function App() {
         | 'csv-to-json'
         | 'xml-to-json'
     ) => {
+      if (actionType === 'format' && inputFormat !== 'json') {
+        runCrossConversion(inputFormat, 'json');
+        return;
+      }
+      const target = actionType.startsWith('to-') ? actionType.slice(3) : '';
+      if (getFormatAdapter(target)?.writeSupport && getFormatAdapter(target)?.writeSupport !== 'none') {
+        runCrossConversion('json', target as DataFormat);
+        return;
+      }
       let resultText = '';
       let lang: 'json' | 'xml' | 'csv' | 'text' = 'json';
       let title = '';
@@ -466,6 +496,8 @@ export default function App() {
 
       if (!inputText.trim()) {
         setOutputText('');
+        setOutputHasData(false);
+        setOutputViewMode('code');
         setParsedData(null);
         setIsValid(true);
         setError(null);
@@ -890,6 +922,10 @@ export default function App() {
         // Update output state
         setOutputText(resultText);
         setOutputLanguage(lang);
+        setOutputFormat(actionType === 'b64-encode' ? 'text' : lang);
+        setLastProcessedFormat(inputFormat);
+        setOutputHasData(validState && lang === 'json');
+        setOutputViewMode('code');
         setActiveActionTitle(title);
         setParsedData(parsedObj);
         setIsValid(validState);
@@ -901,7 +937,7 @@ export default function App() {
           saveHistoryItem({
             title,
             inputFormat,
-            outputFormat: lang as any,
+            outputFormat: actionType === 'b64-encode' ? 'text' : lang,
             inputText,
             outputText: resultText,
             inputSizeBytes: new Blob([inputText]).size,
@@ -918,7 +954,7 @@ export default function App() {
         showToast(`Error: ${err.message || 'Operation failed'}`);
       }
     },
-    [inputText, preferences, inputFormat]
+    [inputText, preferences, inputFormat, runCrossConversion]
   );
 
 
@@ -984,16 +1020,20 @@ export default function App() {
       showToast('Output is empty — nothing to swap');
       return;
     }
+    const adapter = getFormatAdapter(outputFormat);
+    if (!adapter || adapter.readSupport === 'none') {
+      showToast('This output format cannot be used as input. Copy or export it instead.');
+      return;
+    }
+    const targetFmt = adapter.id as DataFormat;
     setInputText(outputText);
     setLastProcessedInput(outputText);
-    let targetFmt: DataFormat = 'json';
-    if (outputLanguage === 'xml') targetFmt = 'xml';
-    else if (outputLanguage === 'csv') targetFmt = 'csv';
+    setLastProcessedFormat(targetFmt);
 
     setInputFormat(targetFmt);
     validateInputByFormat(outputText, targetFmt);
     showToast('Swapped Output ➔ Input Editor');
-  }, [outputText, outputLanguage, validateInputByFormat]);
+  }, [outputText, outputFormat, validateInputByFormat]);
 
   // Count search query matches in output
   const searchMatchesCount = React.useMemo(() => {
@@ -1038,10 +1078,12 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
       const target = e.target as HTMLElement;
+      if (e.defaultPrevented) return;
       const isInputting = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
       // Open Command Palette: Ctrl+K or Cmd+K or Ctrl+P or Cmd+P
       if (isMod && (e.key === 'k' || e.key === 'K' || e.key === 'p' || e.key === 'P')) {
+        if (isWorkspaceOverlayOpen && !isCommandPaletteOpen) return;
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
         return;
@@ -1049,6 +1091,7 @@ export default function App() {
 
       // Open Keyboard Shortcuts Modal: Ctrl+/ or Cmd+/
       if (isMod && e.key === '/') {
+        if (isWorkspaceOverlayOpen && !isShortcutsOpen) return;
         e.preventDefault();
         setIsShortcutsOpen((prev) => !prev);
         return;
@@ -1068,6 +1111,7 @@ export default function App() {
         }
       }
 
+      if (isWorkspaceOverlayOpen || target?.closest('[role="dialog"], [aria-modal="true"]')) return;
       // Hotkeys
       if (isMod && e.key === 'Enter') {
         e.preventDefault();
@@ -1092,14 +1136,13 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isShortcutsOpen, handleFormat, handleSwapOutputToInput, handleCopyOutput]);
+  }, [isShortcutsOpen, isCommandPaletteOpen, isWorkspaceOverlayOpen, handleFormat, handleSwapOutputToInput, handleCopyOutput]);
 
   // Download output file
   const handleDownload = () => {
     if (!outputText) return;
 
-    let extension = 'json';
-    const ext = getFileExtensionForFormat(activeActionTitle || outputLanguage);
+    const ext = outputFormat === 'text' ? '.txt' : getFileExtensionForFormat(outputFormat);
     const filename = `converted_data_${Date.now()}${ext}`;
 
     const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8;' });
@@ -1120,7 +1163,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      if (content) {
+      if (typeof content === 'string') {
         const filenameFormat = detectFormatFromFilename(file.name);
         const fmt = (filenameFormat || detectFormat(content)) as DataFormat;
 
@@ -1131,6 +1174,8 @@ export default function App() {
         showToast(`Loaded ${file.name}`);
       }
     };
+    reader.onerror = () => showToast(`Unable to read ${file.name}. Please try again.`);
+    reader.onabort = () => showToast('File upload cancelled');
     reader.readAsText(file);
   };
 
@@ -1220,10 +1265,14 @@ export default function App() {
 
     setOutputText(resultText);
     setOutputLanguage('json');
+    setOutputFormat('json');
+    setOutputViewMode('code');
     setParsedData(parsedObj);
     setIsValid(validState);
     setError(errDetail);
     setLastProcessedInput(sample.content);
+    setLastProcessedFormat(sample.format);
+    setOutputHasData(validState);
 
     showToast(`Loaded sample: ${sample.name}`);
   };
@@ -1235,6 +1284,8 @@ export default function App() {
     const restoredInputFormat = (getFormatAdapter(item.inputFormat)?.id || 'json') as DataFormat;
     setInputFormat(restoredInputFormat);
     setOutputLanguage(getOutputLanguage(item.outputFormat));
+    setOutputFormat((getFormatAdapter(item.outputFormat)?.id || 'text') as DataFormat | 'text');
+    setOutputViewMode('code');
     setActiveActionTitle(item.title);
 
     const inputResult = getFormatAdapter(restoredInputFormat)?.parse(item.inputText);
@@ -1244,6 +1295,8 @@ export default function App() {
     setIsValid(Boolean(inputResult?.valid));
     setError(inputResult?.valid ? null : { message: inputResult?.error || 'Unable to parse restored input' });
     setLastProcessedInput(item.inputText);
+    setLastProcessedFormat(restoredInputFormat);
+    setOutputHasData(Boolean(outputResult?.valid || inputResult?.valid));
     showToast(`Restored: ${item.title}`);
   };
 
@@ -1253,11 +1306,15 @@ export default function App() {
     setOutputText(jsonText);
     setInputFormat('json');
     setOutputLanguage('json');
+    setOutputFormat('json');
+    setOutputViewMode('code');
     setParsedData(validation.parsed);
     setIsValid(validation.valid);
     setError(validation.error);
     setActiveActionTitle('Formatted JSON');
     setLastProcessedInput(jsonText);
+    setLastProcessedFormat('json');
+    setOutputHasData(validation.valid);
     showToast(message);
   };
 
@@ -1270,11 +1327,22 @@ export default function App() {
     setError(null);
     setActiveActionTitle('No output yet');
     setLastProcessedInput('');
+    setOutputHasData(false);
+    setOutputViewMode('code');
     textareaRef.current?.focus();
     showToast('Workspace cleared');
   };
 
-  const isOutputStale = Boolean(outputText) && inputText !== lastProcessedInput;
+  const isOutputStale = Boolean(outputText) && (inputText !== lastProcessedInput || inputFormat !== lastProcessedFormat);
+
+  React.useEffect(() => {
+    if (!isFocusMode) return;
+    const closeFocus = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !isWorkspaceOverlayOpen) setIsFocusMode(false);
+    };
+    window.addEventListener('keydown', closeFocus);
+    return () => window.removeEventListener('keydown', closeFocus);
+  }, [isFocusMode, isWorkspaceOverlayOpen]);
 
   // Stats calculation
   const stats: TransformationStats | null = React.useMemo(() => {
@@ -1282,7 +1350,7 @@ export default function App() {
   }, [parsedData, inputText, outputText]);
 
   return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors selection:bg-indigo-500/30">
+    <div data-focus-mode={isFocusMode} className="studio-app min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans transition-colors selection:bg-indigo-500/30">
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div
@@ -1337,7 +1405,20 @@ export default function App() {
       />
 
       {/* Main Workspace */}
-      <main className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-5 gap-3 overflow-visible">
+      <main className="studio-workspace flex-1 flex flex-col max-w-[1600px] w-full mx-auto p-3 sm:p-5 gap-3 overflow-visible">
+        <div className="workspace-heading flex flex-wrap items-center justify-between gap-2 py-1">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Data workspace</h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Edit, convert, and explore your data in one place.</p>
+          </div>
+          <div className="flex items-center gap-2">
+          {isFocusMode && <button onClick={() => setIsCommandPaletteOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs"><Search className="w-3.5 h-3.5" />Search tools</button>}
+          <button onClick={() => setIsFocusMode(value => !value)} aria-pressed={isFocusMode} className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-medium hover:border-indigo-400">
+            {isFocusMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            {isFocusMode ? 'Exit focus mode' : 'Focus mode'}
+          </button>
+          </div>
+        </div>
         {/* Action Toolbar */}
         <section
           aria-label="Quick actions"
@@ -1856,48 +1937,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Output View Mode Controls */}
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-md border border-zinc-200 dark:border-zinc-700/80">
-            <button
-              onClick={() => setOutputViewMode('code')}
-              className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
-                outputViewMode === 'code'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-              }`}
-            >
-              <Code className="w-3.5 h-3.5" />
-              {t.codeView}
-            </button>
 
-            {parsedData && (
-              <>
-                <button
-                  onClick={() => setOutputViewMode('tree')}
-                  className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
-                    outputViewMode === 'tree'
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                  {t.treeView}
-                </button>
-
-                <button
-                  onClick={() => setOutputViewMode('table')}
-                  className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
-                    outputViewMode === 'table'
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <TableIcon className="w-3.5 h-3.5" />
-                  {t.tableView}
-                </button>
-              </>
-            )}
-          </div>
         </section>
 
         {/* Universal Cross-Format Converter Bar */}
@@ -1926,7 +1966,7 @@ export default function App() {
                   const newFmt = e.target.value as DataFormat;
                   setInputFormat(newFmt);
                   validateInputByFormat(inputText, newFmt);
-                  runCrossConversion(newFmt, targetOutputFormat);
+                  setAutoDetectFormat(false);
                 }}
                 className="min-w-0 w-full sm:w-44 bg-transparent text-white font-mono text-xs font-medium cursor-pointer focus:outline-none"
               >
@@ -1949,7 +1989,7 @@ export default function App() {
                 onChange={(e) => {
                   const newFmt = e.target.value as DataFormat;
                   setTargetOutputFormat(newFmt);
-                  runCrossConversion(inputFormat, newFmt);
+
                 }}
                 className="min-w-0 w-full sm:w-48 bg-transparent text-white font-mono text-xs font-semibold cursor-pointer focus:outline-none"
               >
@@ -1964,6 +2004,7 @@ export default function App() {
             {/* Execute Convert Button */}
             <button
               onClick={() => runCrossConversion(inputFormat, targetOutputFormat)}
+              disabled={!inputText.trim()}
               className="inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer shadow-xs"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
@@ -1973,7 +2014,7 @@ export default function App() {
         </section>
 
         {/* Dual Pane Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:h-[calc(100vh-15.5rem)] lg:min-h-[520px] lg:max-h-[760px]">
+        <div className="editor-grid grid grid-cols-1 lg:grid-cols-2 gap-3 lg:h-[calc(100dvh-19rem)] lg:min-h-[440px] lg:max-h-[900px]">
           {/* Left Pane: Input Editor */}
           <div
             role="region"
@@ -1981,7 +2022,7 @@ export default function App() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative h-[520px] sm:h-[620px] lg:h-full min-h-0 flex flex-col bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden shadow-xs transition-all ${
+            className={`relative h-[520px] sm:h-[620px] lg:h-full min-h-0 flex flex-col bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden shadow-xs transition-colors ${
               isDragging
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/10 dark:bg-indigo-950/20'
                 : 'border-zinc-200 dark:border-zinc-800'
@@ -1998,6 +2039,7 @@ export default function App() {
                   onChange={(e) => {
                     const newFmt = e.target.value as DataFormat;
                     setInputFormat(newFmt);
+                    setAutoDetectFormat(false);
                     validateInputByFormat(inputText, newFmt);
                   }}
                   aria-label="Input format"
@@ -2038,18 +2080,20 @@ export default function App() {
 
               {/* Input Action Buttons */}
               <div className="flex items-center gap-1 ml-auto">
-                <label className="inline-flex items-center gap-1 px-2 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer transition-colors text-[11px] font-medium">
+                <label className="focus-within:ring-2 focus-within:ring-indigo-500 relative inline-flex items-center gap-1 px-2 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer transition-colors text-[11px] font-medium">
                   <Upload className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Upload</span>
                   <input
                     type="file"
-                    accept=".json,.xml,.csv,.yaml,.yml,.toml,.txt,.properties,.env"
+                    aria-label="Upload data file"
+                    accept={READABLE_FORMATS.flatMap(format => format.extensions).concat('.txt').join(',')}
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
                         handleFileUpload(e.target.files[0]);
                       }
+                      e.target.value = '';
                     }}
-                    className="hidden"
+                    className="absolute inset-0 opacity-0 w-full cursor-pointer"
                   />
                 </label>
 
@@ -2080,11 +2124,13 @@ export default function App() {
 
                 <button
                   onClick={handleSwapOutputToInput}
+                  aria-label="Use output as input"
+                  disabled={!outputText || !getFormatAdapter(outputFormat) || getFormatAdapter(outputFormat)?.readSupport === 'none'}
                   className="inline-flex items-center gap-1 px-2 py-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors text-[11px] font-medium cursor-pointer"
-                  title="Swap output back into input editor (Ctrl+Shift+X)"
+                  title="Use output as input (Ctrl+Shift+X)"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Swap</span>
+                  <span className="hidden sm:inline">Use output</span>
                 </button>
 
                 <button
@@ -2100,10 +2146,10 @@ export default function App() {
 
             {/* Error Banner overlay if invalid JSON */}
             {!isValid && error && (
-              <div className="bg-rose-500/10 border-b border-rose-500/20 px-3 py-1.5 flex items-center justify-between text-xs text-rose-600 dark:text-rose-400 font-mono">
-                <div className="flex items-center gap-2 truncate">
+              <div role="alert" id="input-error" className="bg-rose-500/10 border-b border-rose-500/20 px-3 py-1.5 flex items-center justify-between text-xs text-rose-600 dark:text-rose-400 font-mono">
+                <div className="flex min-w-0 items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
-                  <span className="font-medium truncate">{error.message}</span>
+                  <span className="font-medium break-words">{error.message}</span>
                 </div>
                 {(inputFormat === 'json' || inputFormat === 'json5') && (
                   <button
@@ -2121,7 +2167,8 @@ export default function App() {
               {/* Line Numbers Gutter */}
               <div
                 ref={lineNumbersRef}
-                className="select-none w-11 shrink-0 overflow-hidden border-r border-zinc-200 bg-zinc-50 py-3 pl-2 pr-2 text-right text-[11px] leading-relaxed text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-400"
+                aria-hidden="true"
+                className="input-gutter select-none w-11 shrink-0 overflow-hidden border-r border-zinc-200 bg-zinc-50 py-3 pl-2 pr-2 text-right text-[11px] leading-relaxed text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-400"
               >
                 {Array.from({ length: Math.max(1, inputLinesCount) }, (_, i) => (
                   <div key={i}>{i + 1}</div>
@@ -2131,6 +2178,12 @@ export default function App() {
               {/* Code Textarea */}
               <textarea
                 ref={textareaRef}
+                aria-label="Input editor"
+                aria-invalid={!isValid}
+                aria-describedby={!isValid && error ? 'input-error' : undefined}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                wrap="off"
                 onScroll={handleInputScroll}
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
@@ -2158,13 +2211,13 @@ export default function App() {
                   }
                 }}
                 placeholder="Paste or type your JSON, XML, CSV, TOML, or .env data here..."
-                className="w-full h-full p-3 font-mono text-xs sm:text-sm bg-transparent text-zinc-800 dark:text-zinc-200 resize-none focus:outline-none leading-relaxed selection:bg-indigo-500/20 whitespace-pre overflow-auto"
+                className="input-editor w-full h-full p-3 font-mono text-xs sm:text-sm bg-transparent text-zinc-800 dark:text-zinc-200 resize-none focus:outline-none leading-relaxed selection:bg-indigo-500/20 whitespace-pre overflow-auto"
                 spellCheck={false}
               />
 
               {/* Empty State Quick-Start Overlay */}
-              {!inputText.trim() && (
-                <div className="absolute inset-0 z-10 p-6 flex flex-col items-center justify-center text-center bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-2xs border-2 border-dashed border-zinc-200 dark:border-zinc-800 m-3 rounded-xl select-none transition-all">
+              {!inputText.trim() && !isInputFocused && (
+                <div className="pointer-events-none absolute inset-0 z-10 p-6 flex flex-col items-center justify-center text-center bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-2xs border-2 border-dashed border-zinc-200 dark:border-zinc-800 m-3 rounded-xl select-none transition-all">
                   <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mb-3">
                     <Sparkles className="w-6 h-6 animate-pulse" />
                   </div>
@@ -2175,30 +2228,31 @@ export default function App() {
                     Paste your JSON, XML, CSV, TOML, or .env data, drag & drop a file, or click a quick sample below.
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-md">
+                  <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 max-w-md">
+                    <button onClick={() => textareaRef.current?.focus()} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium">Start typing</button>
                     <button
                       onClick={() => handleSelectSample(SAMPLE_DATASETS[0])}
                       className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
                     >
-                      🚀 User Profiles
+                      User Profiles
                     </button>
                     <button
                       onClick={() => handleSelectSample(SAMPLE_DATASETS[1])}
                       className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
                     >
-                      🛒 E-Commerce
+                      E-Commerce
                     </button>
                     <button
                       onClick={() => handleSelectSample(SAMPLE_DATASETS[3])}
                       className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
                     >
-                      🔧 Dirty JSON (Repair)
+                      Dirty JSON (Repair)
                     </button>
                     <button
                       onClick={() => handleSelectSample(SAMPLE_DATASETS[13])}
                       className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-2xs transition-colors cursor-pointer"
                     >
-                      🔑 JWT Token
+                      JWT Token
                     </button>
                     <button
                       onClick={async () => {
@@ -2214,7 +2268,7 @@ export default function App() {
                       }}
                       className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      📋 Paste Clipboard
+                      Paste Clipboard
                     </button>
                   </div>
                 </div>
@@ -2230,7 +2284,7 @@ export default function App() {
           >
             {/* Output Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-xs font-sans">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span id="output-panel-title" className="font-semibold text-zinc-700 dark:text-zinc-300">
                   <span className="mr-1 text-indigo-600 dark:text-indigo-300">2.</span>Output
                 </span>
@@ -2251,7 +2305,8 @@ export default function App() {
                   <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="text"
-                    placeholder="Search..."
+                    aria-label="Search output"
+                    placeholder="Search output"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-7 pr-14 py-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded text-[11px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -2288,6 +2343,54 @@ export default function App() {
               </div>
             </div>
 
+            <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+              {/* Output View Mode Controls */}
+              <div role="group" aria-label="Output view" className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-md border border-zinc-200 dark:border-zinc-700/80">
+                <button
+                  onClick={() => setOutputViewMode('code')}
+                  aria-pressed={outputViewMode === 'code'}
+                  className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                    outputViewMode === 'code'
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" />
+                  {t.codeView}
+                </button>
+
+                {outputHasData && (
+                  <>
+                    <button
+                      onClick={() => setOutputViewMode('tree')}
+                      aria-pressed={outputViewMode === 'tree'}
+                      className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                        outputViewMode === 'tree'
+                          ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      {t.treeView}
+                    </button>
+
+                    <button
+                      onClick={() => setOutputViewMode('table')}
+                      aria-pressed={outputViewMode === 'table'}
+                      className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                        outputViewMode === 'table'
+                          ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-semibold'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      <TableIcon className="w-3.5 h-3.5" />
+                      {t.tableView}
+                    </button>
+                  </>
+                )}
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500">Read only</span>
+            </div>
             {/* Output Display Body */}
             <div className="flex-1 min-h-0 overflow-auto p-1 relative">
               {!outputText && (
@@ -2339,8 +2442,11 @@ export default function App() {
       </main>
 
       {/* SEO Footer Section */}
-      <footer className="mt-4 sm:mt-6 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 py-6 sm:py-10 px-4 sm:px-8 text-zinc-600 dark:text-zinc-400 text-xs font-sans">
+      <footer className="mt-4 sm:mt-6 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 py-4 sm:py-5 px-4 sm:px-8 text-zinc-600 dark:text-zinc-400 text-xs font-sans">
         <div className="max-w-7xl mx-auto space-y-5 sm:space-y-8">
+          <details className="group">
+            <summary className="cursor-pointer py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">About JSON Studio, supported formats, and help</summary>
+            <div className="space-y-5 sm:space-y-8 pt-4">
           {/* Main Footer Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
             <div>
@@ -2454,6 +2560,8 @@ export default function App() {
             </div>
           </div>
 
+            </div>
+          </details>
           <div className="flex flex-col items-center justify-between gap-3 border-t border-zinc-200 pt-4 text-[11px] text-zinc-500 md:flex-row dark:border-zinc-800 dark:text-zinc-400">
             <div className="flex flex-wrap items-center gap-2">
               <span>© {new Date().getFullYear()} <a href={HOMEPAGE_URL} className="hover:underline font-mono font-medium text-zinc-700 dark:text-zinc-300">{HOMEPAGE_DOMAIN}</a>. {t.allRightsReserved}</span>
@@ -2549,6 +2657,11 @@ export default function App() {
         onApplyResult={(resultText, format) => {
           setOutputText(resultText);
           setOutputLanguage(format === 'sql' ? 'text' : 'json');
+          setOutputFormat(format === 'sql' ? 'sql' : 'json');
+          const parsed = format === 'sql' ? null : validateJson(resultText);
+          setParsedData(parsed?.parsed ?? null);
+          setOutputHasData(Boolean(parsed?.valid));
+          setLastProcessedFormat(inputFormat);
           setOutputViewMode('code');
           setActiveActionTitle(format === 'sql' ? 'SQL Script & Schema' : 'Parsed SQL to JSON');
           setLastProcessedInput(inputText);
@@ -2661,6 +2774,10 @@ export default function App() {
           setOutputText(convertedContent);
           setInputFormat(restoredFormat);
           setOutputLanguage(getOutputLanguage(restoredFormat));
+          setOutputFormat(restoredFormat);
+          setOutputViewMode('code');
+          setOutputHasData(Boolean(parsed?.valid));
+          setLastProcessedFormat(restoredFormat);
           setParsedData(parsed?.valid ? parsed.data : null);
           setIsValid(Boolean(parsed?.valid));
           setError(parsed?.valid ? null : { message: parsed?.error || `Invalid ${format} output` });

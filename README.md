@@ -12,6 +12,14 @@ carries your payload off the machine.
 
 **Live app: [studio.lolisoft.eu](https://studio.lolisoft.eu)**
 
+## Workspace
+
+- Choose input and target formats, then select **Convert**. Changing a format does not replace the current output.
+- Use **Focus mode** for a larger editing area. **Search tools** remains available and Escape returns to the normal workspace.
+- Switch between **Code**, **Tree**, and **Table** beside the output. Tree search reveals matching branches and copies unambiguous JSON paths. Tables support nested-value search, column sorting, dataset selection, and 50-row pages.
+- **Use output** keeps the generated format when moving a result into the editor. Export uses the corresponding file extension.
+- The command palette supports keyboard navigation and remains accessible on mobile. Large code output can be expanded with **Show more lines**.
+
 ## Formats
 
 Conversion runs through a shared adapter registry ([`src/adapters/formatRegistry.ts`](src/adapters/formatRegistry.ts))
@@ -122,7 +130,7 @@ The dev server listens on [http://localhost:3000](http://localhost:3000).
 | `npm run preview` | Serve the built bundle |
 | `npm run lint` | TypeScript type check (`tsc --noEmit`) |
 | `npm test` | Vitest unit tests |
-| `npm run test:e2e` | Playwright UI audit |
+| `npm run test:e2e` | Desktop and mobile workflow regression tests |
 | `npm run clean` | Remove build artifacts and caches |
 
 `make` wraps the same commands and works from CMD, PowerShell, Git Bash, macOS and Linux
@@ -169,3 +177,5 @@ workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Run `npm 
 ## License
 
 [MIT](LICENSE)
+
+Install the test browser with `npx playwright install chromium` before running the UI tests. CI installs Chromium and uploads screenshots and failure traces.
