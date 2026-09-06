@@ -53,3 +53,37 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep every line number aligned with its editor line at each text size. */
+.input-editor,
+.input-gutter {
+  line-height: 1.5rem;
+  tab-size: 2;
+}
+
+.studio-workspace [role="region"] {
+  min-width: 0;
+}
+
+.studio-app[data-focus-mode="true"] > header,
+.studio-app[data-focus-mode="true"] > footer {
+  display: none;
+}
+
+.studio-app[data-focus-mode="true"] .studio-workspace {
+  max-width: none;
+}
+
+@media (min-width: 1024px) {
+  .studio-app[data-focus-mode="true"] .editor-grid {
+    height: calc(100dvh - 15rem);
+    max-height: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .studio-workspace button,
+  .studio-workspace select {
+    min-height: 2rem;
+  }
+}

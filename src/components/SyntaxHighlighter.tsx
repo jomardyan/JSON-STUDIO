@@ -15,14 +15,16 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
   searchQuery = '',
   maxLinesToShow = 1500,
 }) => {
+  const [visibleLimit, setVisibleLimit] = React.useState(maxLinesToShow);
+  React.useEffect(() => { setVisibleLimit(maxLinesToShow); }, [code, maxLinesToShow]);
   const lines = React.useMemo(() => {
     if (!code) return [];
     return code.split('\n');
   }, [code]);
 
   const visibleLines = React.useMemo(() => {
-    return lines.slice(0, maxLinesToShow);
-  }, [lines, maxLinesToShow]);
+    return lines.slice(0, visibleLimit);
+  }, [lines, visibleLimit]);
 
   return (
     <div className="font-mono text-xs sm:text-sm leading-relaxed overflow-x-auto selection:bg-indigo-500/30">
@@ -60,9 +62,10 @@ export const SyntaxHighlighter: React.FC<SyntaxHighlighterProps> = ({
         </tbody>
       </table>
 
-      {lines.length > maxLinesToShow && (
+      {lines.length > visibleLimit && (
         <div className="p-3 text-center text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
-          Showing first {maxLinesToShow} of {lines.length} lines for fast rendering.
+          <p>Showing {visibleLimit} of {lines.length} lines. Copy and export include the complete output.</p>
+          <button onClick={() => setVisibleLimit(limit => limit + Math.max(1, maxLinesToShow))} className="mt-2 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md font-medium hover:bg-indigo-500/10">Show more lines</button>
         </div>
       )}
     </div>
