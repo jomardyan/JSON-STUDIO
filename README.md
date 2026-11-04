@@ -111,8 +111,7 @@ enter.
 
 ## Getting started
 
-Requires Node.js 20 or newer. CI builds against Node 20, and the Docker image is based on
-`node:20-alpine`.
+Requires Node.js 22.12 or newer (24 LTS recommended) for development and tests. CI and the Docker builder use Node 24.
 
 ```bash
 git clone https://github.com/jomardyan/JSON-STUDIO.git
@@ -179,3 +178,5 @@ workflow and [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Run `npm 
 [MIT](LICENSE)
 
 Install the test browser with `npx playwright install chromium` before running the UI tests. CI installs Chromium and uploads screenshots and failure traces.
+
+[Maintenance audit and validation notes](docs/AUDIT-2026-11-04.md) documents the reviewed scope, development commands, checks and remaining limits.

@@ -87,10 +87,10 @@ export function createMergePatch(jsonA: string, jsonB: string): { mergePatchObj:
         return JSON.stringify(a) === JSON.stringify(b) ? undefined : b;
       }
 
-      const patch: Record<string, any> = {};
+      const patch: Record<string, any> = Object.create(null);
 
       for (const key of Object.keys(b)) {
-        if (!(key in a)) {
+        if (!Object.prototype.hasOwnProperty.call(a, key)) {
           patch[key] = b[key];
         } else {
           const subPatch = diff(a[key], b[key]);
@@ -105,7 +105,7 @@ export function createMergePatch(jsonA: string, jsonB: string): { mergePatchObj:
       }
 
       for (const key of Object.keys(a)) {
-        if (!(key in b)) {
+        if (!Object.prototype.hasOwnProperty.call(b, key)) {
           patch[key] = null; // RFC 7386 null indicates deletion
         }
       }
@@ -113,7 +113,8 @@ export function createMergePatch(jsonA: string, jsonB: string): { mergePatchObj:
       return patch;
     }
 
-    const mergePatchObj = diff(docA, docB);
+    // An unchanged scalar/array still needs a valid JSON merge patch.
+    const mergePatchObj = diff(docA, docB) ?? docB;
 
     return {
       mergePatchObj,
@@ -149,7 +150,12 @@ export function applyMergePatch(targetJson: string, mergePatchJson: string): App
         if (val === null) {
           delete target[key];
         } else {
-          target[key] = merge(target[key], val);
+          // Never recurse into inherited values (notably __proto__ and constructor).
+          // Define own data properties so those names remain ordinary JSON keys.
+          const previous = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : undefined;
+          Object.defineProperty(target, key, {
+            value: merge(previous, val), enumerable: true, writable: true, configurable: true,
+          });
         }
       }
 
