@@ -182,3 +182,8 @@ Install the test browser with `npx playwright install chromium` before running t
 [Maintenance audit and validation notes](docs/AUDIT-2026-11-04.md) documents the reviewed scope, development commands, checks and remaining limits.
 
 `make test` runs the regression suite; `make check` includes tests, type checking, and the production build. `make package` builds and writes `release/json-studio-<version>.zip` containing the deployable `dist/` files. Packaging creates a local archive.
+
+## Copyright
+
+Copyright (c) 2026 Hayk Jomardyan - Lolisoft.
+See COPYRIGHT.md for attribution and existing license notices.
